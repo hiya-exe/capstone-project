@@ -71,7 +71,9 @@ In future phases, the project may include:
 ## Contributors
 
 - Hiya Shah
-- Arshdeep Kaur.
+- Arshdeep Kaur
+- Mehakpreet Thind
+- Harjot Sidhu.
 
 ## Notes
 
