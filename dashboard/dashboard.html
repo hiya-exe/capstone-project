@@ -1,1 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title> AWS Security Posture PoC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      /* ── White / Light-grey palette ── */
+      --bg:        #f5f6f8;
+      --surface:   #ffffff;
+      --surface2:  #f9fafb;
+      --surface3:  #f1f3f5;
+      --border:    #e3e6eb;
+      --border2:   #d0d5dd;
 
+      /* Text */
+      --t1:        #1a1f2e;
+      --t2:        #4b5565;
+      --t3:        #8a95a5;
+
+      /* Accent — single muted navy-blue */
+      --accent:    #3b6fd4;
+      --accent-bg: rgba(59,111,212,0.07);
+
+      /* Severity — restrained, used only on badges/bars */
+      --crit:     #c0392b;
+      --crit-bg:  rgba(192,57,43,0.07);
+      --high:     #c0620d;
+      --high-bg:  rgba(192,98,13,0.07);
+      --med:      #9a7d0a;
+      --med-bg:   rgba(154,125,10,0.07);
+      --low:      #1e8a5e;
+      --low-bg:   rgba(30,138,94,0.07);
+
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Inter', sans-serif;
+      --r:   5px;
+      --r2:  10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--t1);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    .shell { display: flex; min-height: 100vh; }
+
+    /* ══════════ SIDEBAR ══════════ */
+    .sidebar {
+      width: 220px; flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: sticky; top: 0; height: 100vh;
+      overflow-y: auto;
+      box-shadow: 1px 0 0 var(--border);
+    }
+
+    .brand { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+    .brand-row { display: flex; align-items: center; gap: 9px; margin-bottom: 3px; }
+    .brand-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .brand-name { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--t1); letter-spacing: 0.04em; }
+    .brand-tag  { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 0.14em; text-transform: uppercase; margin-left: 17px; }
+
+    .nav { flex: 1; padding: 14px 0; }
+    .nav-section { font-family: var(--mono); font-size: 8.5px; color: var(--t3); letter-spacing: 0.2em; text-transform: uppercase; padding: 8px 18px 5px; }
+    .nav-link {
+      display: flex; align-items: center; gap: 9px;
+      padding: 7px 18px; color: var(--t2); font-size: 12.5px;
+      font-weight: 400; text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: color 0.12s, background 0.12s, border-color 0.12s;
+    }
+    .nav-link:hover  { color: var(--t1); background: var(--surface2); }
+    .nav-link.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-bg); font-weight: 500; }
+    .nav-ico { font-size: 12px; width: 16px; text-align: center; }
+
+    .sidebar-foot {
+      padding: 12px 14px 18px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .btn-primary {
+      display: block; text-align: center;
+      background: var(--accent); color: #fff;
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      padding: 9px 12px; border-radius: var(--r);
+      text-decoration: none; border: none; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-ghost {
+      display: block; text-align: center; background: none;
+      color: var(--t3); font-family: var(--mono); font-size: 10px; font-weight: 500;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 7px 12px; border-radius: var(--r);
+      text-decoration: none; border: 1px solid var(--border2); cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .btn-ghost:hover { color: var(--t1); border-color: var(--t2); }
+
+    /* ══════════ MAIN ══════════ */
+    .main { flex: 1; min-width: 0; padding: 28px 32px 60px; }
+
+    .page-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
+    .page-eyebrow { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 4px; }
+    .page-title { font-size: 20px; font-weight: 600; color: var(--t1); letter-spacing: -0.01em; }
+    .meta-chips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; padding-top: 4px; }
+    .chip { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; font-family: var(--mono); font-size: 10px; color: var(--t3); white-space: nowrap; box-shadow: var(--shadow); }
+    .chip b { color: var(--t2); font-weight: 600; }
+
+    .sec { margin-bottom: 24px; }
+    .sec-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .sec-title { font-family: var(--mono); font-size: 9.5px; font-weight: 700; color: var(--t3); letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap; }
+    .sec-line  { flex: 1; height: 1px; background: var(--border); }
+
+    /* KPI STRIP */
+    .kpi-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; }
+    .kpi {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r2); padding: 16px 16px 13px;
+      position: relative; overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .kpi:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.09); border-color: var(--border2); }
+    .kpi-accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--bar-color, var(--accent)); }
+    .kpi-lbl { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--t3); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 7px; }
+    .kpi-val { font-family: var(--mono); font-size: 30px; font-weight: 700; line-height: 1; color: var(--bar-color, var(--t1)); }
+    .kpi-sub { font-size: 11px; color: var(--t3); margin-top: 5px; }
+    .kpi-score { --bar-color: var(--accent); }
+    .kpi-crit  { --bar-color: var(--crit); }
+    .kpi-high  { --bar-color: var(--high); }
+    .kpi-med   { --bar-color: var(--med); }
+    .kpi-low   { --bar-color: var(--low); }
+    .status-good { color: var(--low); font-weight: 600; }
+    .status-fair { color: var(--med); font-weight: 600; }
+    .status-poor { color: var(--crit); font-weight: 600; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 280px; gap: 14px; }
+
+    /* PANEL */
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r2); overflow: hidden; box-shadow: var(--shadow);
+    }
+    .panel-hd {
+      padding: 11px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface2);
+    }
+    .panel-title { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--t2); letter-spacing: 0.12em; text-transform: uppercase; }
+    .panel-sub   { font-family: var(--mono); font-size: 10px; color: var(--t3); }
+    .panel-body  { padding: 16px 18px; background: var(--surface); }
+
+    /* GAUGE */
+    .gauge-wrap { text-align: center; }
+    #gaugeChart  { max-height: 140px; }
+    .gauge-num { font-family: var(--mono); font-size: 36px; font-weight: 700; color: var(--t1); line-height: 1; margin-top: -6px; }
+    .gauge-status { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 3px; }
+    .scan-details { margin-top: 14px; display: flex; flex-direction: column; }
+    .scan-dr { display: flex; justify-content: space-between; font-size: 11px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+    .scan-dr:last-child { border: none; }
+    .scan-dr span { color: var(--t3); font-family: var(--mono); font-size: 10px; }
+    .scan-dr b    { color: var(--t1); font-size: 11px; font-weight: 500; }
+
+    /* ── SERVICE POSTURE ── */
+    .svc-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+    .svc-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r2); padding: 14px 16px;
+      box-shadow: var(--shadow); transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .svc-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.09); border-color: var(--border2); }
+    .svc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .svc-name { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--t1); }
+    .svc-badge { font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; }
+    .svc-badge.critical { background: var(--crit-bg); color: var(--crit); }
+    .svc-badge.high     { background: var(--high-bg); color: var(--high); }
+    .svc-badge.medium   { background: var(--med-bg);  color: var(--med); }
+    .svc-badge.low      { background: var(--low-bg);  color: var(--low); }
+    .svc-badge.clean    { background: var(--low-bg);  color: var(--low); }
+    .svc-score-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+    .svc-score-num { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--t1); line-height: 1; }
+    .svc-score-lbl { font-size: 11px; color: var(--t3); }
+    .svc-bar-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; margin-bottom: 9px; border: 1px solid var(--border); }
+    .svc-bar-fill  { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+    .svc-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; border-top: 1px solid var(--border); }
+    .svc-row span { color: var(--t3); }
+    .svc-row b    { font-family: var(--mono); color: var(--t2); font-weight: 600; }
+
+    /* ── MULTI-BENCHMARK ── */
+    .bench-tabs {
+      display: flex; gap: 2px; padding: 10px 18px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .btab {
+      font-family: var(--mono); font-size: 10px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--t3); padding: 7px 14px;
+      border-radius: 4px 4px 0 0; cursor: pointer;
+      border: 1px solid transparent; border-bottom: none;
+      margin-bottom: -1px; background: none;
+      transition: color 0.12s, background 0.12s;
+    }
+    .btab:hover { color: var(--t2); }
+    .btab.active {
+      color: var(--accent); background: var(--surface);
+      border-color: var(--border); border-bottom-color: var(--surface);
+    }
+    .bench-pane { display: none; }
+    .bench-pane.active { display: block; }
+    .bench-body { padding: 16px 18px; background: var(--surface); }
+
+    .bench-prog-lbl { font-family: var(--mono); font-size: 10px; color: var(--t3); margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .bench-prog-track { height: 5px; background: var(--surface3); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+    .bench-prog-fill  { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
+    .bench-stats { display: flex; gap: 10px; margin-bottom: 14px; }
+    .bench-stat {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 10px 12px; text-align: center;
+    }
+    .bench-stat-num { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--t1); }
+    .bench-stat-lbl { font-size: 10px; color: var(--t3); margin-top: 2px; }
+    .bench-stat.pass  .bench-stat-num { color: var(--low); }
+    .bench-stat.fail  .bench-stat-num { color: var(--crit); }
+    .bench-stat.score .bench-stat-num { color: var(--accent); }
+
+    .ctrl-list { display: flex; flex-direction: column; gap: 6px; }
+    .ctrl-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r);
+    }
+    .ctrl-id   { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--t3); min-width: 80px; }
+    .ctrl-name { flex: 1; font-size: 12px; color: var(--t2); }
+    .ctrl-tag  { font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; }
+    .ctrl-pass    { background: var(--low-bg);  color: var(--low); }
+    .ctrl-fail    { background: var(--crit-bg); color: var(--crit); }
+    .ctrl-partial { background: var(--med-bg);  color: var(--med); }
+
+    /* ── ATTACK CHAINS ── */
+    .chain-list { display: flex; flex-direction: column; gap: 9px; }
+    .chain {
+      background: var(--surface); border: 1px solid var(--border);
+      border-left: 3px solid var(--crit); border-radius: var(--r);
+      padding: 12px 14px; box-shadow: var(--shadow);
+    }
+    .chain.high   { border-left-color: var(--high); }
+    .chain.medium { border-left-color: var(--med); }
+    .chain-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .chain-name  { font-size: 12.5px; font-weight: 600; color: var(--t1); }
+    .chain-mitre { font-family: var(--mono); font-size: 9px; color: var(--accent); background: var(--accent-bg); border: 1px solid rgba(59,111,212,0.18); padding: 2px 7px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+    .chain-desc  { font-size: 11.5px; color: var(--t2); line-height: 1.55; margin-bottom: 8px; }
+    .chain-codes { display: flex; gap: 5px; flex-wrap: wrap; }
+    .rule-pill   { font-family: var(--mono); font-size: 10px; background: var(--surface2); border: 1px solid var(--border2); padding: 1px 7px; border-radius: 3px; color: var(--t2); }
+    .no-chains   { text-align: center; padding: 24px; font-family: var(--mono); font-size: 11px; color: var(--low); }
+
+    /* ── FINDINGS TABLE ── */
+    .findings-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r2); overflow: hidden; box-shadow: var(--shadow);
+    }
+    .filter-bar {
+      display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+      border-bottom: 1px solid var(--border); background: var(--surface2); flex-wrap: wrap;
+    }
+    .filter-lbl { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap; }
+    .fsel {
+      background: var(--surface); border: 1px solid var(--border2); color: var(--t2);
+      border-radius: var(--r); padding: 5px 24px 5px 9px;
+      font-family: var(--mono); font-size: 10.5px; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath fill='%238a95a5' d='M0 0l4.5 5L9 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center;
+      min-width: 125px; transition: border-color 0.12s;
+    }
+    .fsel:focus { outline: none; border-color: var(--accent); }
+    .vdiv { width: 1px; height: 16px; background: var(--border2); margin: 0 2px; }
+    .btn-reset {
+      background: none; border: 1px solid var(--border2); color: var(--t3);
+      font-family: var(--mono); font-size: 9.5px; padding: 4px 10px;
+      border-radius: var(--r); cursor: pointer; transition: all 0.12s;
+    }
+    .btn-reset:hover { color: var(--t1); border-color: var(--t2); }
+    .filter-count { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--t3); }
+    .filter-count b { color: var(--t2); }
+
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { border-bottom: 1px solid var(--border); background: var(--surface2); }
+    th { padding: 9px 13px; font-family: var(--mono); font-size: 8.5px; font-weight: 700; color: var(--t3); letter-spacing: 0.18em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+
+    .frow { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+    .frow:hover { background: var(--surface2); }
+    .frow:last-child { border-bottom: none; }
+    td { padding: 10px 13px; vertical-align: middle; }
+
+    .exp-btn { background: none; border: none; color: var(--t3); font-size: 15px; cursor: pointer; padding: 0 3px; transition: color 0.12s, transform 0.18s; display: inline-flex; align-items: center; }
+    .exp-btn.open { color: var(--accent); transform: rotate(90deg); }
+    .code-pill { font-family: var(--mono); font-size: 10px; background: var(--surface2); border: 1px solid var(--border2); padding: 2px 7px; border-radius: 3px; color: var(--t2); white-space: nowrap; }
+    .ftitle { font-size: 12.5px; font-weight: 500; color: var(--t1); }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+    .bc { background: var(--crit-bg); color: var(--crit); }
+    .bh { background: var(--high-bg); color: var(--high); }
+    .bm { background: var(--med-bg);  color: var(--med); }
+    .bl { background: var(--low-bg);  color: var(--low); }
+    .bf { background: var(--crit-bg); color: var(--crit); }
+    .bp { background: var(--low-bg);  color: var(--low); }
+    .br { background: var(--accent-bg); color: var(--accent); }
+
+    .cis-wrap { display: flex; gap: 3px; flex-wrap: wrap; }
+    .cis-dot { font-family: var(--mono); font-size: 9px; background: var(--surface2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 3px; color: var(--t3); }
+
+    .drow { display: none; }
+    .drow.open { display: table-row; }
+    .drow-inner { padding: 13px 18px 15px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+    .drow-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .drow-lbl   { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 4px; }
+    .drow-val   { font-size: 12px; color: var(--t2); line-height: 1.6; }
+
+    .rem-btn { background: none; border: 1px solid var(--border2); color: var(--t3); font-family: var(--mono); font-size: 9px; font-weight: 600; padding: 3px 9px; border-radius: var(--r); cursor: pointer; white-space: nowrap; transition: all 0.12s; }
+    .rem-btn:hover:not(:disabled) { border-color: var(--low); color: var(--low); }
+    .rem-btn.done { border-color: rgba(59,111,212,0.3); color: var(--accent); cursor: default; }
+
+    /* OVERLAY */
+    #overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.85); z-index: 200; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+    #overlay.on { display: flex; }
+    .spin { width: 36px; height: 36px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay-txt { font-family: var(--mono); font-size: 11px; color: var(--t2); letter-spacing: 0.1em; }
+
+    /* TOAST */
+    #toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border2); border-left: 2px solid var(--low); border-radius: var(--r); padding: 9px 16px; font-family: var(--mono); font-size: 11px; color: var(--t1); opacity: 0; transform: translateY(6px); transition: all 0.2s; z-index: 300; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 1100px) {
+      .kpi-row { grid-template-columns: repeat(3,1fr); }
+      .two-col  { grid-template-columns: 1fr; }
+      .svc-grid { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 820px) {
+      .sidebar { display: none; }
+      .main { padding: 16px 14px 40px; }
+      .kpi-row { grid-template-columns: repeat(2,1fr); }
+      .svc-grid { grid-template-columns: 1fr; }
+      .drow-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="overlay"><div class="spin"></div><div class="overlay-txt">Scanning AWS environment…</div></div>
+<div id="toast"></div>
+
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-row"><div class="brand-dot"></div><div class="brand-name">Multi-Benchmark Security PoC</div></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Dashboard</div>
+      <a class="nav-link active" href="#overview"><span class="nav-ico">▪</span> Overview</a>
+      <a class="nav-link" href="#svc-posture"><span class="nav-ico">▪</span> Service Posture</a>
+      <a class="nav-link" href="#benchmarks"><span class="nav-ico">▪</span> Benchmarks</a>
+      <a class="nav-link" href="#attack-chains"><span class="nav-ico">▪</span> Attack Chains</a>
+      <a class="nav-link" href="#findings"><span class="nav-ico">▪</span> Findings</a>
+      <div class="nav-section">Export</div>
+      <a class="nav-link" href="/download-summary"><span class="nav-ico">↓</span> Full Report</a>
+     <!-- <a class="nav-link" href="/export?severity=Critical"><span class="nav-ico">↓</span> Critical Only</a> -->
+    </nav>
+    <div class="sidebar-foot">
+      <a class="btn-primary" href="/scan" id="scanBtn">▶ Run New Scan</a>
+      <a class="btn-ghost"   href="/download-summary">↓ Download JSON</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HEADER -->
+    <div class="page-hd" id="overview">
+      <div>
+        <div class="page-eyebrow">AWS Cloud Security · PoC Assessment</div>
+        <div class="page-title">Security Posture Dashboard</div>
+      </div>
+      {% if latest_scan %}
+      <div class="meta-chips">
+        <div class="chip">Account <b>{{ latest_scan["aws_account_id"] }}</b></div>
+        <div class="chip">Region <b>{{ latest_scan["region"] }}</b></div>
+        <div class="chip">Scan <b>#{{ latest_scan["scan_id"] }}</b></div>
+        <div class="chip">Profile <b>{{ latest_scan["aws_profile"] }}</b></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- KPI -->
+    <div class="sec">
+      <div class="sec-hd"><span class="sec-title">Score &amp; Severity</span><span class="sec-line"></span></div>
+      <div class="kpi-row">
+        <div class="kpi kpi-score">
+          <div class="kpi-accent-bar"></div>
+          <div class="kpi-lbl">Posture Score</div>
+          <div class="kpi-val">{{ security_score }}</div>
+          <div class="kpi-sub"><span class="{% if security_status=='Good' %}status-good{% elif security_status=='Fair' %}status-fair{% else %}status-poor{% endif %}">{{ security_status }}</span> / 100</div>
+        </div>
+        <div class="kpi kpi-crit">
+          <div class="kpi-accent-bar"></div>
+          <div class="kpi-lbl">Critical</div>
+          <div class="kpi-val">{{ summary["Critical"] }}</div>
+          <div class="kpi-sub">finding{{ "s" if summary["Critical"] != 1 }}</div>
+        </div>
+        <div class="kpi kpi-high">
+          <div class="kpi-accent-bar"></div>
+          <div class="kpi-lbl">High</div>
+          <div class="kpi-val">{{ summary["High"] }}</div>
+          <div class="kpi-sub">finding{{ "s" if summary["High"] != 1 }}</div>
+        </div>
+        <div class="kpi kpi-med">
+          <div class="kpi-accent-bar"></div>
+          <div class="kpi-lbl">Medium</div>
+          <div class="kpi-val">{{ summary["Medium"] }}</div>
+          <div class="kpi-sub">finding{{ "s" if summary["Medium"] != 1 }}</div>
+        </div>
+        <div class="kpi kpi-low">
+          <div class="kpi-accent-bar"></div>
+          <div class="kpi-lbl">Low · Total</div>
+          <div class="kpi-val">{{ summary["Low"] }}</div>
+          <div class="kpi-sub">{{ total_findings }} total</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div class="sec two-col">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-title">Severity Distribution</span>
+          <span class="panel-sub">Scan #{{ latest_scan["scan_id"] if latest_scan }}</span>
+        </div>
+        <div class="panel-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+          <div style="flex:0 0 160px;"><canvas id="donutChart"></canvas></div>
+          <div style="flex:1;min-width:100px;display:grid;gap:7px;">
+            {% for sev, col in [("Critical","var(--crit)"),("High","var(--high)"),("Medium","var(--med)"),("Low","var(--low)")] %}
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:7px;height:7px;border-radius:50%;background:{{col}};flex-shrink:0;display:inline-block;"></span>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--t3);flex:1;">{{sev}}</span>
+              <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:{{col}};">{{ summary[sev] }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-title">Security Score</span>
+          <span class="panel-sub">{{ latest_scan["scan_type"] if latest_scan }}</span>
+        </div>
+        <div class="panel-body gauge-wrap">
+          <canvas id="gaugeChart"></canvas>
+          <div class="gauge-num">{{ security_score }}</div>
+          <div class="gauge-status {% if security_status=='Good' %}status-good{% elif security_status=='Fair' %}status-fair{% else %}status-poor{% endif %}">{{ security_status }}</div>
+          {% if latest_scan %}
+          <div class="scan-details">
+            <div class="scan-dr"><span>Scope</span><b>{{ latest_scan["service"] }}</b></div>
+            <div class="scan-dr"><span>Type</span><b>{{ latest_scan["scan_type"] }}</b></div>
+            <div class="scan-dr"><span>Completed</span><b>{{ latest_scan["completed_at"][:16]|replace("T"," ") }}</b></div>
+            <div class="scan-dr"><span>Status</span><b>{{ latest_scan["status"]|title }}</b></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- POSTURE OF SERVICES -->
+    <div class="sec" id="svc-posture">
+      <div class="sec-hd">
+        <span class="sec-title">Posture of Services</span>
+        <span class="sec-line"></span>
+      </div>
+      <div class="svc-grid" id="svcGrid"></div>
+    </div>
+
+    <!-- MULTI-BENCHMARK -->
+    <div class="sec" id="benchmarks">
+      <div class="sec-hd">
+        <span class="sec-title">Multi-Framework Benchmark Analysis</span>
+        <span class="sec-line"></span>
+        <span style="font-family:var(--mono);font-size:9px;color:var(--accent);white-space:nowrap;">CIS v8 · NIST CSF · AWS WAF</span>
+      </div>
+      <div class="panel">
+        <div class="bench-tabs">
+          <button class="btab active" onclick="switchBench('cis')">CIS Controls v8</button>
+          <button class="btab"        onclick="switchBench('nist')">NIST CSF</button>
+          <button class="btab"        onclick="switchBench('waf')">AWS Well-Architected</button>
+        </div>
+
+        <div class="bench-pane active" id="pane-cis">
+          <div class="bench-body">
+            <div class="bench-prog-lbl"><span>Compliance Coverage</span><span id="cis-pct">—</span></div>
+            <div class="bench-prog-track"><div class="bench-prog-fill" id="cis-bar" style="width:0%"></div></div>
+            <div class="bench-stats">
+              <div class="bench-stat pass"><div class="bench-stat-num" id="cis-pass">0</div><div class="bench-stat-lbl">Controls Met</div></div>
+              <div class="bench-stat fail"><div class="bench-stat-num" id="cis-fail">0</div><div class="bench-stat-lbl">Controls Failed</div></div>
+              <div class="bench-stat score"><div class="bench-stat-num" id="cis-part">0</div><div class="bench-stat-lbl">Partial</div></div>
+            </div>
+            <div class="ctrl-list" id="cis-list"></div>
+          </div>
+        </div>
+
+        <div class="bench-pane" id="pane-nist">
+          <div class="bench-body">
+            <div class="bench-prog-lbl"><span>Framework Coverage</span><span id="nist-pct">—</span></div>
+            <div class="bench-prog-track"><div class="bench-prog-fill" id="nist-bar" style="width:0%"></div></div>
+            <div class="bench-stats">
+              <div class="bench-stat pass"><div class="bench-stat-num" id="nist-pass">0</div><div class="bench-stat-lbl">Functions Met</div></div>
+              <div class="bench-stat fail"><div class="bench-stat-num" id="nist-fail">0</div><div class="bench-stat-lbl">Gaps Found</div></div>
+              <div class="bench-stat score"><div class="bench-stat-num" id="nist-part">0</div><div class="bench-stat-lbl">Partial</div></div>
+            </div>
+            <div class="ctrl-list" id="nist-list"></div>
+          </div>
+        </div>
+
+        <div class="bench-pane" id="pane-waf">
+          <div class="bench-body">
+            <div class="bench-prog-lbl"><span>Pillar Coverage</span><span id="waf-pct">—</span></div>
+            <div class="bench-prog-track"><div class="bench-prog-fill" id="waf-bar" style="width:0%"></div></div>
+            <div class="bench-stats">
+              <div class="bench-stat pass"><div class="bench-stat-num" id="waf-pass">0</div><div class="bench-stat-lbl">Best Practices Met</div></div>
+              <div class="bench-stat fail"><div class="bench-stat-num" id="waf-fail">0</div><div class="bench-stat-lbl">Risks Found</div></div>
+              <div class="bench-stat score"><div class="bench-stat-num" id="waf-score">—</div><div class="bench-stat-lbl">WAF Score</div></div>
+            </div>
+            <div class="ctrl-list" id="waf-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTACK CHAINS -->
+    <div class="sec" id="attack-chains">
+      <div class="sec-hd">
+        <span class="sec-title">Attack Path Analysis</span>
+        <span class="sec-line"></span>
+        <span id="chain-lbl" style="font-family:var(--mono);font-size:9px;color:var(--t3);white-space:nowrap;"></span>
+      </div>
+      <div class="chain-list" id="chainsEl"></div>
+    </div>
+
+    <!-- FINDINGS -->
+    <div class="sec" id="findings">
+      <div class="sec-hd"><span class="sec-title">Findings Detail</span><span class="sec-line"></span></div>
+      <div class="findings-panel">
+        <div class="filter-bar">
+          <span class="filter-lbl">Filter:</span>
+          <select class="fsel" id="fSev" onchange="applyFilters()">
+            <option value="all">All Severities</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+          <div class="vdiv"></div>
+          <select class="fsel" id="fStatus" onchange="applyFilters()">
+            <option value="all">All Statuses</option>
+            <option value="FAIL">FAIL</option>
+            <option value="PASS">PASS</option>
+            <option value="REMEDIATED">REMEDIATED</option>
+          </select>
+          <div class="vdiv"></div>
+          <select class="fsel" id="fCode" onchange="applyFilters()">
+            <option value="all">All Rule IDs</option>
+            {% set seen_codes = [] %}
+            {% for f in findings %}
+              {% if f["finding_code"] not in seen_codes %}
+                {% set _ = seen_codes.append(f["finding_code"]) %}
+                <option value="{{ f['finding_code'] }}">{{ f["finding_code"] }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <div class="vdiv"></div>
+          <select class="fsel" id="fCis" onchange="applyFilters()" style="min-width:115px;">
+            <option value="all">All CIS Controls</option>
+            {% set seen_cis = [] %}
+            {% for f in findings %}
+              {% if f["cis_mapping"] %}
+                {% for c in f["cis_mapping"].split(", ") %}
+                  {% if c and c not in seen_cis %}
+                    {% set _ = seen_cis.append(c) %}
+                    <option value="{{ c }}">{{ c }}</option>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+          </select>
+          <button class="btn-reset" onclick="resetFilters()">✕ Reset</button>
+          <span class="filter-count"><b id="vis-count">{{ findings|length }}</b> of {{ findings|length }} findings</span>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px;"></th>
+                <th>Rule ID</th>
+                <th>Title</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>CIS Mapping</th>
+                <th>Resource</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="ftbody">
+              {% for f in findings %}
+              <tr class="frow"
+                  data-sev="{{ f['severity'] }}"
+                  data-status="{{ f['compliance_status'] }}"
+                  data-code="{{ f['finding_code'] }}"
+                  data-cis="{{ f['cis_mapping'] if f['cis_mapping'] else '' }}"
+                  data-idx="{{ loop.index }}"
+                  onclick="toggleRow({{ loop.index }})">
+                <td style="width:36px;" onclick="event.stopPropagation();toggleRow({{ loop.index }})">
+                  <button class="exp-btn" id="exp-{{ loop.index }}">›</button>
+                </td>
+                <td><span class="code-pill">{{ f["finding_code"] }}</span></td>
+                <td><div class="ftitle">{{ f["title"] }}</div></td>
+                <td>
+                  <span class="badge {% if f['severity']=='Critical' %}bc{% elif f['severity']=='High' %}bh{% elif f['severity']=='Medium' %}bm{% else %}bl{% endif %}">{{ f["severity"] }}</span>
+                </td>
+                <td>
+                  <span class="badge {% if f['compliance_status']=='FAIL' %}bf{% elif f['compliance_status']=='PASS' %}bp{% else %}br{% endif %}" id="sbadge-{{ loop.index }}">{{ f["compliance_status"] }}</span>
+                </td>
+                <td>
+                  {% if f["cis_mapping"] %}
+                  <div class="cis-wrap">{% for c in f["cis_mapping"].split(", ") %}<span class="cis-dot">{{ c }}</span>{% endfor %}</div>
+                  {% else %}<span style="color:var(--t3);font-family:var(--mono);font-size:10px;">—</span>{% endif %}
+                </td>
+                <td style="font-family:var(--mono);font-size:10px;color:var(--t3);">{{ f["finding_code"] }}</td>
+                <td onclick="event.stopPropagation()">
+                  {% if f["compliance_status"] == "REMEDIATED" %}
+                  <button class="rem-btn done" disabled>✓ Done</button>
+                  {% else %}
+                  <button class="rem-btn" id="rem-{{ loop.index }}" onclick="markFixed({{ loop.index }},this)">Mark Fixed</button>
+                  {% endif %}
+                </td>
+              </tr>
+              <tr class="drow" id="detail-{{ loop.index }}">
+                <td colspan="8">
+                  <div class="drow-inner">
+                    <div class="drow-grid">
+                      <div><div class="drow-lbl">Remediation Guidance</div><div class="drow-val">{{ f["remediation"] or "No guidance available." }}</div></div>
+                      <div>
+                        <div class="drow-lbl">Compliance Status</div><div class="drow-val">{{ f["compliance_status"] }}</div>
+                        <div class="drow-lbl" style="margin-top:10px;">Finding Code</div>
+                        <div class="drow-val" style="font-family:var(--mono);font-size:11px;">{{ f["finding_code"] }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="8" style="text-align:center;padding:40px;font-family:var(--mono);font-size:11px;color:var(--t3);">No findings found. Run a scan to populate this table.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const SCORE   = {{ security_score }};
+const SUMMARY = {{ summary | tojson }};
+
+/* SEVERITY DOUGHNUT */
+(function(){
+  const ctx=document.getElementById('donutChart');if(!ctx)return;
+  const vals=[SUMMARY.Critical,SUMMARY.High,SUMMARY.Medium,SUMMARY.Low];
+  const colors=['#c0392b','#c0620d','#9a7d0a','#1e8a5e'];
+  const total=vals.reduce((a,b)=>a+b,0);
+  new Chart(ctx,{type:'doughnut',data:{labels:['Critical','High','Medium','Low'],datasets:[{data:total>0?vals:[1],backgroundColor:total>0?colors:['#e3e6eb'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:true,cutout:'68%',plugins:{legend:{display:false},tooltip:{enabled:total>0,backgroundColor:'#fff',titleColor:'#1a1f2e',bodyColor:'#4b5565',borderColor:'#e3e6eb',borderWidth:1}}}});
+})();
+
+/* GAUGE */
+(function(){
+  const ctx=document.getElementById('gaugeChart');if(!ctx)return;
+  const color=SCORE>=80?'#1e8a5e':SCORE>=50?'#9a7d0a':'#c0392b';
+  new Chart(ctx,{type:'doughnut',data:{datasets:[{data:[SCORE,100-SCORE],backgroundColor:[color,'#f1f3f5'],borderWidth:0,circumference:200,rotation:-100}]},options:{responsive:true,maintainAspectRatio:true,cutout:'82%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+})();
+
+/* SERVICE POSTURE */
+(function(){
+  const rows=Array.from(document.querySelectorAll('.frow'));
+  const svcMap={};
+  rows.forEach(r=>{
+    const code=r.dataset.code||'';
+    let svc='Other';
+    if(code.startsWith('EC2'))svc='EC2';
+    else if(code.startsWith('S3'))svc='S3';
+    else if(code.startsWith('LOG'))svc='CloudTrail';
+    else if(code.startsWith('IAM'))svc='IAM';
+    else if(code.startsWith('VPC'))svc='VPC';
+    if(!svcMap[svc])svcMap[svc]={Critical:0,High:0,Medium:0,Low:0};
+    svcMap[svc][r.dataset.sev]=(svcMap[svc][r.dataset.sev]||0)+1;
+  });
+  if(!Object.keys(svcMap).length){['EC2','S3','CloudTrail'].forEach(s=>{svcMap[s]={Critical:0,High:0,Medium:0,Low:0};});}
+  const scoreOf=f=>Math.max(0,100-(f.Critical*30+f.High*20+f.Medium*10+f.Low*5));
+  const worstOf=f=>{
+    if(f.Critical>0)return{lbl:'Critical',cls:'critical'};
+    if(f.High>0)return{lbl:'High',cls:'high'};
+    if(f.Medium>0)return{lbl:'Medium',cls:'medium'};
+    if(f.Low>0)return{lbl:'Low',cls:'low'};
+    return{lbl:'Clean',cls:'clean'};
+  };
+  const barColor=s=>s>=80?'#1e8a5e':s>=50?'#9a7d0a':'#c0392b';
+  document.getElementById('svcGrid').innerHTML=Object.entries(svcMap).map(([svc,f])=>{
+    const sc=scoreOf(f),w=worstOf(f),tot=f.Critical+f.High+f.Medium+f.Low,col=barColor(sc);
+    return`<div class="svc-card">
+      <div class="svc-head"><div class="svc-name">${svc}</div><span class="svc-badge ${w.cls}">${w.lbl}</span></div>
+      <div class="svc-score-row"><div class="svc-score-num">${sc}</div><div class="svc-score-lbl">/ 100 posture score</div></div>
+      <div class="svc-bar-track"><div class="svc-bar-fill" style="width:${sc}%;background:${col};"></div></div>
+      <div class="svc-row"><span>Critical</span><b>${f.Critical}</b></div>
+      <div class="svc-row"><span>High</span><b>${f.High}</b></div>
+      <div class="svc-row"><span>Medium</span><b>${f.Medium}</b></div>
+      <div class="svc-row"><span>Low / Total</span><b>${f.Low} / ${tot}</b></div>
+    </div>`;
+  }).join('');
+})();
+
+/* MULTI-BENCHMARK */
+const RULE_MAP={
+  'EC2-001':{cis:[{id:'CIS 4.1',name:'Restrict internet-facing services',status:'fail'},{id:'CIS 12.1',name:'Manage network infrastructure',status:'fail'}],nist:[{id:'PR.AC-3',name:'Remote access managed',status:'fail'},{id:'PR.PT-4',name:'Communications and control networks protected',status:'fail'}],waf:[{id:'SEC 5',name:'Protect networks — no 0.0.0.0/0 on sensitive ports',status:'fail'}]},
+  'EC2-002':{cis:[{id:'CIS 4.1',name:'Restrict internet-facing services',status:'partial'}],nist:[{id:'PR.AC-3',name:'Remote access managed',status:'partial'}],waf:[{id:'SEC 5',name:'Protect networks — public IP assignment',status:'partial'}]},
+  'S3-001': {cis:[{id:'CIS 3.3',name:'Configure data access control lists',status:'fail'},{id:'CIS 12.2',name:'Scan for sensitive data',status:'fail'}],nist:[{id:'PR.DS-1',name:'Data-at-rest protected',status:'fail'},{id:'PR.DS-5',name:'Protections against data leaks',status:'fail'}],waf:[{id:'SEC 8',name:'Protect data at rest — S3 Block Public Access',status:'fail'}]},
+  'LOG-001':{cis:[{id:'CIS 8.1',name:'Establish and maintain audit log management process',status:'fail'},{id:'CIS 8.2',name:'Collect audit logs',status:'fail'}],nist:[{id:'DE.CM-1',name:'Network monitored to detect potential events',status:'fail'},{id:'RS.AN-1',name:'Notifications from detection systems investigated',status:'fail'}],waf:[{id:'SEC 4',name:'Detect security events — CloudTrail enabled',status:'fail'}]}
+};
+const BASE_CIS =[{id:'CIS 1.1',name:'Establish and maintain a software inventory',status:'pass'},{id:'CIS 2.1',name:'Establish and maintain a data management process',status:'pass'},{id:'CIS 3.3',name:'Configure data access control lists'},{id:'CIS 4.1',name:'Restrict internet-facing services'},{id:'CIS 8.1',name:'Establish and maintain audit log management process'},{id:'CIS 8.2',name:'Collect audit logs'},{id:'CIS 12.1',name:'Manage network infrastructure'},{id:'CIS 12.2',name:'Scan for sensitive data'}];
+const BASE_NIST=[{id:'ID.AM-1',name:'Physical devices and systems inventoried',status:'pass'},{id:'PR.AC-3',name:'Remote access managed'},{id:'PR.AC-5',name:'Network integrity is protected',status:'pass'},{id:'PR.DS-1',name:'Data-at-rest is protected'},{id:'PR.DS-5',name:'Protections against data leaks are implemented'},{id:'PR.PT-4',name:'Communications and control networks protected'},{id:'DE.CM-1',name:'Network monitored to detect potential events'},{id:'RS.AN-1',name:'Notifications from detection systems investigated'}];
+const BASE_WAF =[{id:'SEC 1',name:'Implement a strong identity foundation',status:'pass'},{id:'SEC 2',name:'Apply security at all layers',status:'pass'},{id:'SEC 3',name:'Automate security best practices',status:'pass'},{id:'SEC 4',name:'Detect security events — CloudTrail enabled'},{id:'SEC 5',name:'Protect networks'},{id:'SEC 6',name:'Prepare for security events',status:'pass'},{id:'SEC 7',name:'Protect compute resources',status:'pass'},{id:'SEC 8',name:'Protect data at rest — S3 Block Public Access'}];
+
+function buildBench(){
+  const active=new Set(Array.from(document.querySelectorAll('.frow')).map(r=>r.dataset.code));
+  function merge(base,field){const m={};base.forEach(c=>{m[c.id]={...c,status:c.status||'pass'};});active.forEach(code=>{const mp=RULE_MAP[code];if(mp&&mp[field])mp[field].forEach(c=>{m[c.id]={...c};});});return Object.values(m);}
+  function render(ctrls,pEl,fEl,ptEl,pctEl,barEl,listEl){
+    const pass=ctrls.filter(c=>c.status==='pass').length,fail=ctrls.filter(c=>c.status==='fail').length,part=ctrls.filter(c=>c.status==='partial').length,pct=Math.round((pass/ctrls.length)*100);
+    pEl.textContent=pass;fEl.textContent=fail;ptEl.textContent=part;pctEl.textContent=pct+'%';
+    barEl.style.width=pct+'%';barEl.style.background=pct>=70?'#1e8a5e':pct>=40?'#9a7d0a':'#c0392b';
+    listEl.innerHTML=ctrls.map(c=>`<div class="ctrl-item"><span class="ctrl-id">${c.id}</span><span class="ctrl-name">${c.name}</span><span class="ctrl-tag ${c.status==='pass'?'ctrl-pass':c.status==='partial'?'ctrl-partial':'ctrl-fail'}">${c.status}</span></div>`).join('');
+  }
+  const cis=merge(BASE_CIS,'cis'),nist=merge(BASE_NIST,'nist'),waf=merge(BASE_WAF,'waf');
+  render(cis, document.getElementById('cis-pass'),document.getElementById('cis-fail'),document.getElementById('cis-part'),document.getElementById('cis-pct'),document.getElementById('cis-bar'),document.getElementById('cis-list'));
+  render(nist,document.getElementById('nist-pass'),document.getElementById('nist-fail'),document.getElementById('nist-part'),document.getElementById('nist-pct'),document.getElementById('nist-bar'),document.getElementById('nist-list'));
+  const wp=waf.filter(c=>c.status==='pass').length,wf=waf.filter(c=>c.status==='fail').length,wpct=Math.round((wp/waf.length)*100);
+  document.getElementById('waf-pass').textContent=wp;document.getElementById('waf-fail').textContent=wf;document.getElementById('waf-score').textContent=wpct+'%';document.getElementById('waf-pct').textContent=wpct+'%';document.getElementById('waf-bar').style.width=wpct+'%';document.getElementById('waf-bar').style.background=wpct>=70?'#1e8a5e':wpct>=40?'#9a7d0a':'#c0392b';
+  document.getElementById('waf-list').innerHTML=waf.map(c=>`<div class="ctrl-item"><span class="ctrl-id">${c.id}</span><span class="ctrl-name">${c.name}</span><span class="ctrl-tag ${c.status==='pass'?'ctrl-pass':c.status==='partial'?'ctrl-partial':'ctrl-fail'}">${c.status}</span></div>`).join('');
+}
+buildBench();
+
+function switchBench(key){document.querySelectorAll('.btab').forEach((t,i)=>{t.classList.toggle('active',['cis','nist','waf'][i]===key);});document.querySelectorAll('.bench-pane').forEach(p=>{p.classList.toggle('active',p.id==='pane-'+key);});}
+
+/* ATTACK CHAINS */
+const CHAINS=[
+  {name:'Internet Breach → Data Exfiltration',codes:['EC2-001','S3-001','LOG-001'],sev:'critical',mitre:'Initial Access → Lateral Movement → Exfiltration',desc:'An attacker exploits an internet-facing EC2 instance (open SSH/RDP/DB port) to gain a foothold, pivots to an S3 bucket with disabled public-access controls to exfiltrate data — with CloudTrail absent, leaving zero audit trail.'},
+  {name:'Persistent Exposure Without Logging',codes:['EC2-002','LOG-001'],sev:'high',mitre:'Persistence → Defense Evasion',desc:'A publicly exposed EC2 instance runs completely unmonitored because CloudTrail is absent. An attacker can persist indefinitely without triggering any alerts or leaving forensic evidence.'},
+  {name:'Unauthenticated S3 Data Exposure',codes:['S3-001'],sev:'high',mitre:'Collection → Exfiltration',desc:'S3 Block Public Access is disabled. Any stored objects may be directly accessible to unauthenticated internet actors — no EC2 compromise required.'}
+];
+function buildChains(){
+  const active=new Set(Array.from(document.querySelectorAll('.frow')).map(r=>r.dataset.code));
+  const triggered=CHAINS.filter(c=>c.codes.every(x=>active.has(x)));
+  document.getElementById('chain-lbl').textContent=triggered.length+' chain'+(triggered.length!==1?'s':'')+' triggered';
+  const el=document.getElementById('chainsEl');
+  if(!triggered.length){el.innerHTML='<div class="no-chains">✓ No multi-step attack chains detected.</div>';return;}
+  el.innerHTML=triggered.map(c=>`<div class="chain ${c.sev}"><div class="chain-top"><div class="chain-name">${c.name}</div><div class="chain-mitre">${c.mitre}</div></div><div class="chain-desc">${c.desc}</div><div class="chain-codes">${c.codes.map(x=>`<span class="rule-pill">${x}</span>`).join('')}</div></div>`).join('');
+}
+buildChains();
+
+/* FILTERS */
+function applyFilters(){
+  const sev=document.getElementById('fSev').value,status=document.getElementById('fStatus').value,code=document.getElementById('fCode').value,cis=document.getElementById('fCis').value;
+  let vis=0;
+  document.querySelectorAll('.frow').forEach(r=>{
+    const idx=r.dataset.idx;
+    const match=(sev==='all'||r.dataset.sev===sev)&&(status==='all'||r.dataset.status===status)&&(code==='all'||r.dataset.code===code)&&(cis==='all'||(r.dataset.cis||'').includes(cis));
+    r.style.display=match?'':'none';
+    const dr=document.getElementById('detail-'+idx);
+    if(dr)dr.style.display=!match?'none':(dr.classList.contains('open')?'table-row':'none');
+    if(match)vis++;
+  });
+  document.getElementById('vis-count').textContent=vis;
+}
+function resetFilters(){['fSev','fStatus','fCode','fCis'].forEach(id=>document.getElementById(id).value='all');applyFilters();}
+
+/* EXPAND */
+function toggleRow(idx){
+  const dr=document.getElementById('detail-'+idx),btn=document.getElementById('exp-'+idx);
+  if(!dr)return;
+  const open=dr.classList.contains('open');
+  dr.classList.toggle('open',!open);dr.style.display=open?'none':'table-row';btn.classList.toggle('open',!open);
+}
+
+/* REMEDIATE */
+async function markFixed(idx,btn){
+  btn.textContent='⟳';btn.disabled=true;
+  try{
+    await fetch('/api/remediate/'+idx,{method:'POST'});
+    const b=document.getElementById('sbadge-'+idx);
+    if(b){b.textContent='REMEDIATED';b.className='badge br';}
+    btn.textContent='✓ Done';btn.classList.add('done');
+    btn.closest('tr').dataset.status='REMEDIATED';
+    showToast('Finding marked as remediated.');
+  }catch(e){btn.textContent='Mark Fixed';btn.disabled=false;}
+}
+
+/* SCAN */
+document.getElementById('scanBtn')?.addEventListener('click',function(e){
+  e.preventDefault();document.getElementById('overlay').classList.add('on');
+  setTimeout(()=>window.location.href='/scan',150);
+});
+
+/* TOAST */
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+/* NAV SCROLL */
+document.querySelectorAll('.nav-link[href^="#"]').forEach(a=>{
+  a.addEventListener('click',function(e){
+    e.preventDefault();
+    document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+    this.classList.add('active');
+    const t=document.querySelector(this.getAttribute('href'));
+    if(t)t.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+});
+</script>
+</body>
+</html>
