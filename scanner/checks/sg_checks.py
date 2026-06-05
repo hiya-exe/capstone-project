@@ -1,247 +1,188 @@
 import boto3
 from botocore.exceptions import ClientError
 
-AWS_REGION = "ca-central-1"
+# ------------------------------------------------------------
+# SECURITY GROUP CHECKS (Detailed Descriptions + Bullet Remediation)
+# Rule IDs: SG-001 .. SG-005
+# ------------------------------------------------------------
 
-# =============================================================================
-# SECURITY GROUP CHECKS
-# =============================================================================
+def _build_desc(title_lines, evidence_lines, impact_lines, fix_lines):
+    return "\n".join(
+        ["Issue:"] + [f"• {x}" for x in title_lines] +
+        ["", "Evidence:"] + [f"• {x}" for x in evidence_lines] +
+        ["", "Why it matters:"] + [f"• {x}" for x in impact_lines] +
+        ["", "Suggested fix:"] + [f"• {x}" for x in fix_lines]
+    )
 
-def _check_sg_ssh_open_to_internet(findings, add_finding):
+def _add(findings, add_finding, rule_id, resource_id, title_lines, evidence_lines, impact_lines, fix_lines):
+    add_finding(
+        rule_id=rule_id,
+        resource=resource_id,
+        description=_build_desc(title_lines, evidence_lines, impact_lines, fix_lines)
+    )
+
+def _is_world_open(ip_ranges):
+    for r in ip_ranges or []:
+        if r.get("CidrIp") == "0.0.0.0/0":
+            return True
+    return False
+
+def run_sg_checks(findings, add_finding, region):
     """
-    SG-001: Check if any security group allows SSH (port 22) from 0.0.0.0/0 or ::/0.
-    SSH open to the internet exposes instances to brute force and unauthorized access.
-    CIS Mapping: CIS Controls v8 - 4.4
-    NIST CSF: PR.AC-3
+    Runs SG checks and appends findings using the project's add_finding callback.
+
+    Expected add_finding signature (typical):
+      add_finding(rule_id: str, resource: str, description: str)
     """
-    ec2 = boto3.client("ec2", region_name=AWS_REGION)
+    ec2 = boto3.client("ec2", region_name=region)
+
     try:
         sgs = ec2.describe_security_groups().get("SecurityGroups", [])
-        exposed = []
+    except ClientError:
+        return
 
-        for sg in sgs:
-            sg_name = sg.get("GroupName", sg["GroupId"])
-            for rule in sg.get("IpPermissions", []):
-                from_port = rule.get("FromPort", 0)
-                to_port = rule.get("ToPort", 0)
-                protocol = rule.get("IpProtocol", "")
-
-                is_ssh_port = (protocol == "tcp" and from_port <= 22 <= to_port)
-                is_all_traffic = (protocol == "-1")
-
-                if is_ssh_port or is_all_traffic:
-                    open_to_all = any(
-                        r.get("CidrIp") == "0.0.0.0/0" for r in rule.get("IpRanges", [])
-                    ) or any(
-                        r.get("CidrIpv6") == "::/0" for r in rule.get("Ipv6Ranges", [])
-                    )
-                    if open_to_all:
-                        exposed.append(sg_name)
-                        break
-
-        if exposed:
-            count = len(exposed)
-            reason = (
-                f"{count} security group(s) allow SSH (port 22) from the entire internet (0.0.0.0/0). "
-                "This exposes EC2 instances to brute force login attacks and unauthorized remote access. "
-                "SSH access should be restricted to known IP ranges only."
-            )
-            evidence = "Security groups with SSH open to internet: " + ", ".join(exposed)
-            add_finding(
-                findings, "SG-001",
-                f"{count} group(s) with SSH open to internet",
-                reason, evidence, service="SecurityGroups", severity="High"
-            )
-    except ClientError as e:
-        print(f"[SKIP] SG SSH check skipped: {e.response['Error']['Code']}")
-
-
-def _check_sg_rdp_open_to_internet(findings, add_finding):
-    """
-    SG-002: Check if any security group allows RDP (port 3389) from 0.0.0.0/0 or ::/0.
-    RDP open to the internet is a common ransomware and brute force attack vector.
-    CIS Mapping: CIS Controls v8 - 4.4
-    NIST CSF: PR.AC-3
-    """
-    ec2 = boto3.client("ec2", region_name=AWS_REGION)
+    # Used SGs set (attached to any network interface)
+    used_sg_ids = set()
     try:
-        sgs = ec2.describe_security_groups().get("SecurityGroups", [])
-        exposed = []
+        enis = ec2.describe_network_interfaces().get("NetworkInterfaces", [])
+        for eni in enis:
+            for g in eni.get("Groups", []):
+                gid = g.get("GroupId")
+                if gid:
+                    used_sg_ids.add(gid)
+    except ClientError:
+        pass
 
-        for sg in sgs:
-            sg_name = sg.get("GroupName", sg["GroupId"])
-            for rule in sg.get("IpPermissions", []):
-                from_port = rule.get("FromPort", 0)
-                to_port = rule.get("ToPort", 0)
-                protocol = rule.get("IpProtocol", "")
+    for sg in sgs:
+        sg_id = sg.get("GroupId", "Unknown")
+        sg_name = sg.get("GroupName", "Unknown")
 
-                is_rdp_port = (protocol == "tcp" and from_port <= 3389 <= to_port)
-                is_all_traffic = (protocol == "-1")
-
-                if is_rdp_port or is_all_traffic:
-                    open_to_all = any(
-                        r.get("CidrIp") == "0.0.0.0/0" for r in rule.get("IpRanges", [])
-                    ) or any(
-                        r.get("CidrIpv6") == "::/0" for r in rule.get("Ipv6Ranges", [])
-                    )
-                    if open_to_all:
-                        exposed.append(sg_name)
-                        break
-
-        if exposed:
-            count = len(exposed)
-            reason = (
-                f"{count} security group(s) allow RDP (port 3389) from the entire internet (0.0.0.0/0). "
-                "Open RDP is one of the most common entry points for ransomware attacks and brute force "
-                "credential stuffing. RDP access should be restricted to trusted IPs or a VPN only."
+        # SG-005 unused (not attached)
+        if used_sg_ids and sg_id not in used_sg_ids:
+            _add(
+                findings, add_finding, "SG-005", sg_id,
+                title_lines=[
+                    "Security group appears unused (not attached to any network interface).",
+                    "Unused security groups increase clutter and accidental reuse risk."
+                ],
+                evidence_lines=[
+                    f"GroupId: {sg_id}",
+                    f"GroupName: {sg_name}",
+                    "Not found in attached ENI groups (PoC heuristic)."
+                ],
+                impact_lines=[
+                    "Unused groups can be reused later without review.",
+                    "Stale rules may be overly permissive and overlooked."
+                ],
+                fix_lines=[
+                    "Remove unused security groups after verifying they’re not required.",
+                    "Apply naming/owner tagging standards for SG lifecycle management.",
+                    "Review rule hygiene periodically."
+                ]
             )
-            evidence = "Security groups with RDP open to internet: " + ", ".join(exposed)
-            add_finding(
-                findings, "SG-002",
-                f"{count} group(s) with RDP open to internet",
-                reason, evidence, service="SecurityGroups", severity="High"
-            )
-    except ClientError as e:
-        print(f"[SKIP] SG RDP check skipped: {e.response['Error']['Code']}")
 
+        # inbound checks
+        for perm in sg.get("IpPermissions", []):
+            proto = perm.get("IpProtocol")
+            fp = perm.get("FromPort")
+            tp = perm.get("ToPort")
+            ip_ranges = perm.get("IpRanges", [])
 
-def _check_sg_all_traffic_open(findings, add_finding):
-    """
-    SG-003: Check if any security group allows all inbound traffic from 0.0.0.0/0.
-    Allowing all traffic removes any network-level protection for the resource.
-    CIS Mapping: CIS Controls v8 - 12.2
-    NIST CSF: PR.AC-5
-    """
-    ec2 = boto3.client("ec2", region_name=AWS_REGION)
-    try:
-        sgs = ec2.describe_security_groups().get("SecurityGroups", [])
-        exposed = []
+            # SG-003 all inbound (all traffic open)
+            if proto == "-1" and _is_world_open(ip_ranges):
+                _add(
+                    findings, add_finding, "SG-003", sg_id,
+                    title_lines=[
+                        "Security group allows ALL inbound traffic from the internet.",
+                        "This exposes all ports/protocols publicly."
+                    ],
+                    evidence_lines=[
+                        f"GroupId: {sg_id}",
+                        f"GroupName: {sg_name}",
+                        "Inbound: ALL (-1) from 0.0.0.0/0"
+                    ],
+                    impact_lines=[
+                        "Greatly increases risk of exploitation and unauthorized access.",
+                        "Can expose admin services, databases, and internal apps."
+                    ],
+                    fix_lines=[
+                        "Remove all-traffic inbound rules.",
+                        "Allow only required ports and restrict sources to trusted CIDRs.",
+                        "Separate public-facing and internal resources into different SGs."
+                    ]
+                )
 
-        for sg in sgs:
-            sg_name = sg.get("GroupName", sg["GroupId"])
-            for rule in sg.get("IpPermissions", []):
-                protocol = rule.get("IpProtocol", "")
-                if protocol == "-1":
-                    open_to_all = any(
-                        r.get("CidrIp") == "0.0.0.0/0" for r in rule.get("IpRanges", [])
-                    ) or any(
-                        r.get("CidrIpv6") == "::/0" for r in rule.get("Ipv6Ranges", [])
-                    )
-                    if open_to_all:
-                        exposed.append(sg_name)
-                        break
+            # SG-001 SSH open
+            if fp == 22 and tp == 22 and _is_world_open(ip_ranges):
+                _add(
+                    findings, add_finding, "SG-001", sg_id,
+                    title_lines=[
+                        "Inbound SSH (port 22) is open to the public internet.",
+                        "Administrative access should not be globally exposed."
+                    ],
+                    evidence_lines=[
+                        f"GroupId: {sg_id}",
+                        f"GroupName: {sg_name}",
+                        "Inbound: TCP 22 from 0.0.0.0/0"
+                    ],
+                    impact_lines=[
+                        "Common brute-force and credential-stuffing target.",
+                        "Can lead to remote compromise if credentials are weak or reused."
+                    ],
+                    fix_lines=[
+                        "Restrict SSH to trusted IP ranges only.",
+                        "Use VPN or AWS SSM Session Manager instead of public SSH.",
+                        "Remove 0.0.0.0/0 rules unless explicitly required."
+                    ]
+                )
 
-        if exposed:
-            count = len(exposed)
-            reason = (
-                f"{count} security group(s) allow all inbound traffic from the internet (0.0.0.0/0 "
-                "with protocol -1). This completely removes network-level protection and exposes "
-                "every port and protocol on attached resources to the public internet."
-            )
-            evidence = "Security groups allowing all inbound traffic: " + ", ".join(exposed)
-            add_finding(
-                findings, "SG-003",
-                f"{count} group(s) allowing all inbound traffic",
-                reason, evidence, service="SecurityGroups", severity="High"
-            )
-    except ClientError as e:
-        print(f"[SKIP] SG all-traffic check skipped: {e.response['Error']['Code']}")
+            # SG-002 RDP open
+            if fp == 3389 and tp == 3389 and _is_world_open(ip_ranges):
+                _add(
+                    findings, add_finding, "SG-002", sg_id,
+                    title_lines=[
+                        "Inbound RDP (port 3389) is open to the public internet.",
+                        "RDP exposure is commonly abused by ransomware operators."
+                    ],
+                    evidence_lines=[
+                        f"GroupId: {sg_id}",
+                        f"GroupName: {sg_name}",
+                        "Inbound: TCP 3389 from 0.0.0.0/0"
+                    ],
+                    impact_lines=[
+                        "Enables brute-force and remote takeover attempts.",
+                        "Increases likelihood of lateral movement once compromised."
+                    ],
+                    fix_lines=[
+                        "Restrict RDP to trusted IP ranges only.",
+                        "Use VPN/SSM instead of exposing RDP publicly.",
+                        "Monitor authentication attempts and enforce strong controls."
+                    ]
+                )
 
-
-def _check_sg_unrestricted_outbound(findings, add_finding):
-    """
-    SG-004: Check if any security group allows all outbound traffic to 0.0.0.0/0.
-    Unrestricted outbound traffic can allow data exfiltration or communication
-    with malicious external servers.
-    CIS Mapping: CIS Controls v8 - 12.2
-    NIST CSF: PR.AC-5
-    """
-    ec2 = boto3.client("ec2", region_name=AWS_REGION)
-    try:
-        sgs = ec2.describe_security_groups().get("SecurityGroups", [])
-        exposed = []
-
-        for sg in sgs:
-            sg_name = sg.get("GroupName", sg["GroupId"])
-            for rule in sg.get("IpPermissionsEgress", []):
-                protocol = rule.get("IpProtocol", "")
-                if protocol == "-1":
-                    open_to_all = any(
-                        r.get("CidrIp") == "0.0.0.0/0" for r in rule.get("IpRanges", [])
-                    ) or any(
-                        r.get("CidrIpv6") == "::/0" for r in rule.get("Ipv6Ranges", [])
-                    )
-                    if open_to_all:
-                        exposed.append(sg_name)
-                        break
-
-        if exposed:
-            count = len(exposed)
-            reason = (
-                f"{count} security group(s) allow all outbound traffic to the internet (0.0.0.0/0). "
-                "Unrestricted outbound rules can allow data exfiltration, communication with "
-                "command-and-control servers, or unauthorized data transfers from compromised instances."
-            )
-            evidence = "Security groups with unrestricted outbound: " + ", ".join(exposed)
-            add_finding(
-                findings, "SG-004",
-                f"{count} group(s) with unrestricted outbound traffic",
-                reason, evidence, service="SecurityGroups", severity="Medium"
-            )
-    except ClientError as e:
-        print(f"[SKIP] SG outbound check skipped: {e.response['Error']['Code']}")
-
-
-def _check_sg_unused_groups(findings, add_finding):
-    """
-    SG-005: Check if any security groups are not attached to any resource.
-    Unused security groups are unnecessary clutter and may be accidentally
-    reused with overly permissive rules in the future.
-    CIS Mapping: CIS Controls v8 - 12.1
-    NIST CSF: ID.AM-1
-    """
-    ec2 = boto3.client("ec2", region_name=AWS_REGION)
-    try:
-        sgs = ec2.describe_security_groups().get("SecurityGroups", [])
-
-        # Collect all SG IDs that are in use by network interfaces
-        used_sg_ids = set()
-        paginator = ec2.get_paginator("describe_network_interfaces")
-        for page in paginator.paginate():
-            for ni in page.get("NetworkInterfaces", []):
-                for group in ni.get("Groups", []):
-                    used_sg_ids.add(group["GroupId"])
-
-        unused = []
-        for sg in sgs:
-            if sg["GroupId"] not in used_sg_ids and sg.get("GroupName") != "default":
-                unused.append(sg.get("GroupName", sg["GroupId"]))
-
-        if unused:
-            count = len(unused)
-            reason = (
-                f"{count} security group(s) are not attached to any network interface or resource. "
-                "Unused security groups add unnecessary complexity to the environment and may be "
-                "mistakenly reused with overly permissive rules in the future."
-            )
-            evidence = "Unused security groups: " + ", ".join(unused)
-            add_finding(
-                findings, "SG-005",
-                f"{count} unused security group(s) found",
-                reason, evidence, service="SecurityGroups", severity="Low"
-            )
-    except ClientError as e:
-        print(f"[SKIP] SG unused groups check skipped: {e.response['Error']['Code']}")
-
-
-# =============================================================================
-# MAIN RUNNER
-# =============================================================================
-
-def run_sg_checks(findings, add_finding):
-    """Run all Security Group security checks."""
-    _check_sg_ssh_open_to_internet(findings, add_finding)
-    _check_sg_rdp_open_to_internet(findings, add_finding)
-    _check_sg_all_traffic_open(findings, add_finding)
-    _check_sg_unrestricted_outbound(findings, add_finding)
-    _check_sg_unused_groups(findings, add_finding)
+        # outbound check SG-004 (unrestricted outbound)
+        for perm in sg.get("IpPermissionsEgress", []):
+            proto = perm.get("IpProtocol")
+            ip_ranges = perm.get("IpRanges", [])
+            if proto == "-1" and _is_world_open(ip_ranges):
+                _add(
+                    findings, add_finding, "SG-004", sg_id,
+                    title_lines=[
+                        "Security group allows unrestricted outbound traffic (all traffic to 0.0.0.0/0).",
+                        "This allows broad egress to the internet."
+                    ],
+                    evidence_lines=[
+                        f"GroupId: {sg_id}",
+                        f"GroupName: {sg_name}",
+                        "Outbound: ALL (-1) to 0.0.0.0/0"
+                    ],
+                    impact_lines=[
+                        "If compromised, instances can exfiltrate data easily.",
+                        "Can allow command-and-control traffic to malicious endpoints."
+                    ],
+                    fix_lines=[
+                        "Restrict outbound rules to required destinations and ports.",
+                        "Use VPC endpoints for AWS services to reduce internet egress.",
+                        "Monitor outbound traffic for anomalies."
+                    ]
+                )
