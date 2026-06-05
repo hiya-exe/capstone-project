@@ -1,283 +1,203 @@
 import boto3
 from botocore.exceptions import ClientError
-import json
 
-AWS_REGION = "ca-central-1"
+# ------------------------------------------------------------
+# KMS CHECKS (Detailed Descriptions + Bullet Remediation)
+# Rule IDs: KMS-001 .. KMS-005
+# ------------------------------------------------------------
 
-# =============================================================================
-# KMS CHECKS
-# =============================================================================
+def _build_desc(title_lines, evidence_lines, impact_lines, fix_lines):
+    return "\n".join(
+        ["Issue:"] + [f"• {x}" for x in title_lines] +
+        ["", "Evidence:"] + [f"• {x}" for x in evidence_lines] +
+        ["", "Why it matters:"] + [f"• {x}" for x in impact_lines] +
+        ["", "Suggested fix:"] + [f"• {x}" for x in fix_lines]
+    )
 
-def _check_kms_key_rotation(findings, add_finding):
+def _add(findings, add_finding, rule_id, resource_id, title_lines, evidence_lines, impact_lines, fix_lines):
+    add_finding(
+        rule_id=rule_id,
+        resource=resource_id,
+        description=_build_desc(title_lines, evidence_lines, impact_lines, fix_lines)
+    )
+
+def run_kms_checks(findings, add_finding, region):
     """
-    KMS-001: Check if automatic key rotation is enabled on all customer managed keys.
-    Rotation should be enabled to limit the risk of a compromised key being used indefinitely.
-    CIS Mapping: CIS Controls v8 - 3.11
-    NIST CSF: PR.DS-1
+    Runs KMS checks and appends findings using the project's add_finding callback.
+
+    Expected add_finding signature (typical):
+      add_finding(rule_id: str, resource: str, description: str)
     """
-    kms = boto3.client("kms", region_name=AWS_REGION)
+    kms = boto3.client("kms", region_name=region)
+
+    # List keys (customer + AWS managed); we’ll filter to customer managed where needed
     try:
         keys = kms.list_keys().get("Keys", [])
-        keys_without_rotation = []
-
-        for key in keys:
-            key_id = key["KeyId"]
-            try:
-                # Only customer managed keys support rotation checks
-                key_metadata = kms.describe_key(KeyId=key_id)["KeyMetadata"]
-                if key_metadata.get("KeyManager") != "CUSTOMER":
-                    continue
-                if key_metadata.get("KeyState") in ("PendingDeletion", "Disabled"):
-                    continue
-
-                rotation = kms.get_key_rotation_status(KeyId=key_id)
-                if not rotation.get("KeyRotationEnabled", False):
-                    alias = key_id
-                    try:
-                        aliases = kms.list_aliases(KeyId=key_id).get("Aliases", [])
-                        if aliases:
-                            alias = aliases[0].get("AliasName", key_id)
-                    except ClientError:
-                        pass
-                    keys_without_rotation.append(alias)
-            except ClientError:
-                continue
-
-        if keys_without_rotation:
-            count = len(keys_without_rotation)
-            reason = (
-                f"{count} KMS customer managed key(s) do not have automatic key rotation enabled. "
-                "Without rotation, a compromised key remains valid indefinitely, increasing the risk "
-                "of unauthorized decryption of sensitive data."
-            )
-            evidence = "Keys without rotation enabled: " + ", ".join(keys_without_rotation)
-            add_finding(
-                findings, "KMS-001",
-                f"{count} key(s) with rotation disabled",
-                reason, evidence, service="KMS", severity="High"
-            )
     except ClientError as e:
-        print(f"[SKIP] KMS rotation check skipped: {e.response['Error']['Code']}")
+        # If KMS can't be queried, just exit quietly
+        return
 
-
-def _check_kms_overly_permissive_policy(findings, add_finding):
-    """
-    KMS-002: Check if any KMS key policy grants wildcard (*) actions or principals.
-    Overly broad key policies can allow unintended actors to encrypt/decrypt data.
-    CIS Mapping: CIS Controls v8 - 6.1
-    NIST CSF: PR.AC-4
-    """
-    kms = boto3.client("kms", region_name=AWS_REGION)
+    # Build alias map (KeyId -> [aliases])
+    alias_map = {}
     try:
-        keys = kms.list_keys().get("Keys", [])
-        permissive_keys = []
+        for a in kms.list_aliases().get("Aliases", []):
+            kid = a.get("TargetKeyId")
+            if kid:
+                alias_map.setdefault(kid, []).append(a.get("AliasName"))
+    except ClientError:
+        pass
 
-        for key in keys:
-            key_id = key["KeyId"]
-            try:
-                key_metadata = kms.describe_key(KeyId=key_id)["KeyMetadata"]
-                if key_metadata.get("KeyManager") != "CUSTOMER":
-                    continue
+    for k in keys:
+        key_id = k.get("KeyId")
+        if not key_id:
+            continue
 
-                policy_str = kms.get_key_policy(KeyId=key_id, PolicyName="default")["Policy"]
-                policy = json.loads(policy_str)
-                statements = policy.get("Statement", [])
+        # Describe key
+        try:
+            meta = kms.describe_key(KeyId=key_id)["KeyMetadata"]
+        except ClientError:
+            continue
 
-                for stmt in statements:
-                    if stmt.get("Effect") != "Allow":
-                        continue
-                    principal = stmt.get("Principal", {})
-                    actions = stmt.get("Action", [])
-                    if isinstance(actions, str):
-                        actions = [actions]
+        # Focus on customer-managed keys for governance checks
+        if meta.get("KeyManager") != "CUSTOMER":
+            continue
 
-                    # Flag if principal is * or actions contain kms:*
-                    principal_is_wildcard = (
-                        principal == "*" or
-                        (isinstance(principal, dict) and principal.get("AWS") == "*")
-                    )
-                    action_is_wildcard = "kms:*" in actions or "*" in actions
+        key_state = meta.get("KeyState", "Unknown")
 
-                    if principal_is_wildcard or action_is_wildcard:
-                        alias = key_id
-                        try:
-                            aliases = kms.list_aliases(KeyId=key_id).get("Aliases", [])
-                            if aliases:
-                                alias = aliases[0].get("AliasName", key_id)
-                        except ClientError:
-                            pass
-                        permissive_keys.append(alias)
-                        break
-
-            except ClientError:
-                continue
-
-        if permissive_keys:
-            count = len(permissive_keys)
-            reason = (
-                f"{count} KMS key(s) have overly permissive key policies using wildcard (*) principals "
-                "or actions. This can allow any AWS identity or unintended users to perform all KMS "
-                "operations including decryption of sensitive data."
+        # -------------------------
+        # KMS-004: Key Disabled
+        # -------------------------
+        if key_state == "Disabled":
+            _add(
+                findings, add_finding, "KMS-004", key_id,
+                title_lines=[
+                    "A customer-managed KMS key is disabled.",
+                    "Resources relying on it may fail to encrypt/decrypt."
+                ],
+                evidence_lines=[
+                    f"KeyId: {key_id}",
+                    f"KeyState: {key_state}"
+                ],
+                impact_lines=[
+                    "Applications/services using this key may lose access to encrypted data.",
+                    "Operational disruption can occur if the key is required for normal workloads."
+                ],
+                fix_lines=[
+                    "Re-enable the key if it is still needed.",
+                    "Confirm which resources depend on the key before changing state.",
+                    "If retiring, migrate data to a replacement key first."
+                ]
             )
-            evidence = "Keys with permissive policies: " + ", ".join(permissive_keys)
-            add_finding(
-                findings, "KMS-002",
-                f"{count} key(s) with overly permissive policy",
-                reason, evidence, service="KMS", severity="High"
+
+        # -------------------------
+        # KMS-003: Key Pending Deletion
+        # -------------------------
+        if key_state == "PendingDeletion":
+            _add(
+                findings, add_finding, "KMS-003", key_id,
+                title_lines=[
+                    "A customer-managed KMS key is pending deletion.",
+                    "Deletion can permanently lock encrypted data if still in use."
+                ],
+                evidence_lines=[
+                    f"KeyId: {key_id}",
+                    f"KeyState: {key_state}"
+                ],
+                impact_lines=[
+                    "If the key is deleted while still used, encrypted data may become unrecoverable.",
+                    "Can cause application failures and data loss scenarios."
+                ],
+                fix_lines=[
+                    "Review key usage and cancel deletion if still required.",
+                    "Migrate encryption to a new key before deletion.",
+                    "Document key lifecycle and ownership."
+                ]
             )
-    except ClientError as e:
-        print(f"[SKIP] KMS policy check skipped: {e.response['Error']['Code']}")
 
+        # -------------------------
+        # KMS-001: Rotation Disabled
+        # -------------------------
+        # Only supported for customer-managed symmetric keys
+        try:
+            rotation = kms.get_key_rotation_status(KeyId=key_id).get("KeyRotationEnabled")
+            if rotation is False:
+                _add(
+                    findings, add_finding, "KMS-001", key_id,
+                    title_lines=[
+                        "Automatic key rotation is disabled for a customer-managed KMS key.",
+                        "Rotation reduces long-term risk if a key is compromised."
+                    ],
+                    evidence_lines=[
+                        f"KeyId: {key_id}",
+                        "KeyRotationEnabled: False"
+                    ],
+                    impact_lines=[
+                        "Long-lived keys increase exposure time if compromised.",
+                        "Rotation supports stronger key hygiene and governance."
+                    ],
+                    fix_lines=[
+                        "Enable automatic rotation for this key.",
+                        "Validate dependent services after enabling rotation.",
+                        "Apply a rotation standard across environments."
+                    ]
+                )
+        except ClientError:
+            # ignore keys that don't support rotation status calls
+            pass
 
-def _check_kms_keys_pending_deletion(findings, add_finding):
-    """
-    KMS-003: Check if any KMS keys are scheduled for deletion (PendingDeletion state).
-    Keys pending deletion may still be needed to decrypt existing data.
-    CIS Mapping: CIS Controls v8 - 3.1
-    NIST CSF: PR.DS-1
-    """
-    kms = boto3.client("kms", region_name=AWS_REGION)
-    try:
-        keys = kms.list_keys().get("Keys", [])
-        pending_keys = []
+        # -------------------------
+        # KMS-002: Overly Permissive Policy (basic signal)
+        # -------------------------
+        try:
+            pol = kms.get_key_policy(KeyId=key_id, PolicyName="default").get("Policy", "")
+            # simple heuristic checks (PoC-friendly)
+            if '"Principal":"*"' in pol or '"Action":"kms:*"' in pol or '"Resource":"*"' in pol:
+                _add(
+                    findings, add_finding, "KMS-002", key_id,
+                    title_lines=[
+                        "KMS key policy appears overly permissive (wildcards detected).",
+                        "Policies should follow least privilege."
+                    ],
+                    evidence_lines=[
+                        f"KeyId: {key_id}",
+                        "Policy contains wildcard principal/action/resource (heuristic match)."
+                    ],
+                    impact_lines=[
+                        "Broad access can allow unintended encryption/decryption or key administration.",
+                        "Increases blast radius if an identity is compromised."
+                    ],
+                    fix_lines=[
+                        "Remove wildcard principals/actions where possible.",
+                        "Restrict to required roles/users only (least privilege).",
+                        "Use conditions (encryption context, VPC endpoints) when appropriate."
+                    ]
+                )
+        except ClientError:
+            pass
 
-        for key in keys:
-            key_id = key["KeyId"]
-            try:
-                key_metadata = kms.describe_key(KeyId=key_id)["KeyMetadata"]
-                if key_metadata.get("KeyManager") != "CUSTOMER":
-                    continue
-                if key_metadata.get("KeyState") == "PendingDeletion":
-                    alias = key_id
-                    try:
-                        aliases = kms.list_aliases(KeyId=key_id).get("Aliases", [])
-                        if aliases:
-                            alias = aliases[0].get("AliasName", key_id)
-                    except ClientError:
-                        pass
-                    deletion_date = key_metadata.get("DeletionDate", "Unknown")
-                    pending_keys.append(f"{alias} (scheduled: {deletion_date})")
-            except ClientError:
-                continue
-
-        if pending_keys:
-            count = len(pending_keys)
-            reason = (
-                f"{count} KMS key(s) are scheduled for deletion. If these keys are still used to "
-                "protect existing data, deleting them will make that data permanently inaccessible. "
-                "Deletion should be reviewed and confirmed before proceeding."
+        # -------------------------
+        # KMS-005: Missing Alias
+        # -------------------------
+        aliases = alias_map.get(key_id, [])
+        # ignore AWS-managed alias patterns; customer keys should have an alias for clarity
+        if not aliases:
+            _add(
+                findings, add_finding, "KMS-005", key_id,
+                title_lines=[
+                    "Customer-managed KMS key has no alias.",
+                    "Aliases help identify keys and reduce operational mistakes."
+                ],
+                evidence_lines=[
+                    f"KeyId: {key_id}",
+                    "Alias count: 0"
+                ],
+                impact_lines=[
+                    "Harder to manage keys across environments.",
+                    "Higher chance of using the wrong key in production."
+                ],
+                fix_lines=[
+                    "Create an alias (e.g., alias/prod-app-storage-key).",
+                    "Standardize naming and track key owners.",
+                    "Maintain a key inventory for governance."
+                ]
             )
-            evidence = "Keys pending deletion: " + ", ".join(pending_keys)
-            add_finding(
-                findings, "KMS-003",
-                f"{count} key(s) pending deletion",
-                reason, evidence, service="KMS", severity="Medium"
-            )
-    except ClientError as e:
-        print(f"[SKIP] KMS pending deletion check skipped: {e.response['Error']['Code']}")
-
-
-def _check_kms_disabled_keys(findings, add_finding):
-    """
-    KMS-004: Check if any customer managed KMS keys are in a disabled state.
-    Disabled keys cannot be used for cryptographic operations and may indicate
-    misconfiguration or forgotten keys that should be cleaned up.
-    CIS Mapping: CIS Controls v8 - 3.1
-    NIST CSF: PR.DS-1
-    """
-    kms = boto3.client("kms", region_name=AWS_REGION)
-    try:
-        keys = kms.list_keys().get("Keys", [])
-        disabled_keys = []
-
-        for key in keys:
-            key_id = key["KeyId"]
-            try:
-                key_metadata = kms.describe_key(KeyId=key_id)["KeyMetadata"]
-                if key_metadata.get("KeyManager") != "CUSTOMER":
-                    continue
-                if key_metadata.get("KeyState") == "Disabled":
-                    alias = key_id
-                    try:
-                        aliases = kms.list_aliases(KeyId=key_id).get("Aliases", [])
-                        if aliases:
-                            alias = aliases[0].get("AliasName", key_id)
-                    except ClientError:
-                        pass
-                    disabled_keys.append(alias)
-            except ClientError:
-                continue
-
-        if disabled_keys:
-            count = len(disabled_keys)
-            reason = (
-                f"{count} KMS customer managed key(s) are currently disabled. Disabled keys cannot "
-                "be used to encrypt or decrypt data. Any resources relying on these keys will fail "
-                "until the keys are re-enabled or replaced."
-            )
-            evidence = "Disabled keys: " + ", ".join(disabled_keys)
-            add_finding(
-                findings, "KMS-004",
-                f"{count} disabled KMS key(s) found",
-                reason, evidence, service="KMS", severity="Medium"
-            )
-    except ClientError as e:
-        print(f"[SKIP] KMS disabled key check skipped: {e.response['Error']['Code']}")
-
-
-def _check_kms_keys_missing_alias(findings, add_finding):
-    """
-    KMS-005: Check if any customer managed KMS keys are missing an alias.
-    Keys without aliases are harder to identify and manage, increasing the
-    risk of accidental misuse or deletion.
-    CIS Mapping: CIS Controls v8 - 1.1
-    NIST CSF: ID.AM-1
-    """
-    kms = boto3.client("kms", region_name=AWS_REGION)
-    try:
-        keys = kms.list_keys().get("Keys", [])
-        keys_without_alias = []
-
-        for key in keys:
-            key_id = key["KeyId"]
-            try:
-                key_metadata = kms.describe_key(KeyId=key_id)["KeyMetadata"]
-                if key_metadata.get("KeyManager") != "CUSTOMER":
-                    continue
-                if key_metadata.get("KeyState") in ("PendingDeletion",):
-                    continue
-
-                aliases = kms.list_aliases(KeyId=key_id).get("Aliases", [])
-                if not aliases:
-                    keys_without_alias.append(key_id)
-            except ClientError:
-                continue
-
-        if keys_without_alias:
-            count = len(keys_without_alias)
-            reason = (
-                f"{count} KMS customer managed key(s) have no alias assigned. Keys without aliases "
-                "are difficult to identify by name, making key management and auditing harder and "
-                "increasing the risk of accidental misuse or deletion."
-            )
-            evidence = "Keys without alias: " + ", ".join(keys_without_alias)
-            add_finding(
-                findings, "KMS-005",
-                f"{count} key(s) missing an alias",
-                reason, evidence, service="KMS", severity="Low"
-            )
-    except ClientError as e:
-        print(f"[SKIP] KMS alias check skipped: {e.response['Error']['Code']}")
-
-
-# =============================================================================
-# MAIN RUNNER
-# =============================================================================
-
-def run_kms_checks(findings, add_finding):
-    """Run all KMS security checks."""
-    _check_kms_key_rotation(findings, add_finding)
-    _check_kms_overly_permissive_policy(findings, add_finding)
-    _check_kms_keys_pending_deletion(findings, add_finding)
-    _check_kms_disabled_keys(findings, add_finding)
-    _check_kms_keys_missing_alias(findings, add_finding)
