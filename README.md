@@ -56,7 +56,7 @@ Team members will work on different parts of the project, including:
 
 ## Project Status
 
-The project is currently in the research and planning phase. The team is focusing on understanding selected AWS services and preparing the foundation for the scanning tool.
+The project is currently in active development. The team has completed initial research and planning and is now implementing service-specific AWS security checks, refining scanner logic, and preparing dashboard integration and findings display.
 
 ## Future Improvements
 
