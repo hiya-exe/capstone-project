@@ -3,6 +3,8 @@ import sqlite3
 import json
 from datetime import datetime
 from botocore.exceptions import ClientError
+from checks.vpc_checks import run_vpc_checks
+from checks.s3_checks import run_s3_checks
 
 # --------------------------------------------------
 # CONFIG  — update these before running
@@ -32,12 +34,61 @@ RULES = {
         "cis_mapping":    ["Control 4"],
         "recommendation": "Avoid unnecessary public IP assignment. Use private subnets where possible."
     },
-    "S3-001": {
-        "title":          "S3 Bucket with Public Access Risk",
-        "severity":       "High",
-        "risk":           "Potential unauthenticated public data exposure",
-        "cis_mapping":    ["Control 3", "Control 12"],
-        "recommendation": "Enable S3 Block Public Access settings for the bucket."
+    "VPC-001": {
+        "title": "VPC Flow Logs Disabled",
+        "severity": "Medium",
+        "risk": "Network activity may not be available for monitoring or investigation",
+        "cis_mapping": ["Control 8", "Control 12"],
+        "recommendation": "Enable VPC Flow Logs and send records to CloudWatch Logs or Amazon S3."
+    },
+    "VPC-002": {
+        "title": "Public Route to Internet Gateway Detected",
+        "severity": "High",
+        "risk": "Associated subnets may expose resources directly to the internet",
+        "cis_mapping": ["Control 4", "Control 12"],
+        "recommendation": "Restrict Internet Gateway routes to intentionally public subnets and keep sensitive resources in private subnets."
+    },
+    "VPC-003": {
+        "title": "Automatic Public IP Assignment Enabled",
+        "severity": "High",
+        "risk": "New resources may receive public IP addresses and become internet-accessible",
+        "cis_mapping": ["Control 4", "Control 12"],
+        "recommendation": "Disable automatic public IPv4 assignment for subnets that do not require public access."
+    }
+       "S3-001": {
+        "title": "S3 Block Public Access Not Fully Enabled",
+        "severity": "High",
+        "risk": "The bucket may become publicly accessible through ACLs or bucket policies",
+        "cis_mapping": ["Control 3", "Control 12"],
+        "recommendation": "Enable all four S3 Block Public Access settings and review bucket ACLs and policies."
+    },
+    "S3-002": {
+        "title": "S3 Default Encryption Not Configured",
+        "severity": "High",
+        "risk": "Objects may not have the required encryption protection at rest",
+        "cis_mapping": ["Control 3"],
+        "recommendation": "Enable default server-side encryption using SSE-S3 or AWS KMS."
+    },
+    "S3-003": {
+        "title": "S3 Bucket Versioning Disabled",
+        "severity": "Medium",
+        "risk": "Deleted or overwritten objects may not be recoverable",
+        "cis_mapping": ["Control 3", "Control 11"],
+        "recommendation": "Enable bucket versioning and configure lifecycle rules for older versions."
+    },
+    "S3-004": {
+        "title": "S3 Server Access Logging Disabled",
+        "severity": "Medium",
+        "risk": "Bucket access activity may not be available for investigation",
+        "cis_mapping": ["Control 8"],
+        "recommendation": "Enable server access logging and send logs to a separate protected bucket."
+    },
+    "S3-005": {
+        "title": "S3 Bucket Policy Contains Public Principal",
+        "severity": "Critical",
+        "risk": "The bucket policy may allow unauthorized or public access",
+        "cis_mapping": ["Control 3", "Control 6", "Control 12"],
+        "recommendation": "Remove wildcard principals and restrict access to approved IAM identities."
     },
     "LOG-001": {
         "title":          "CloudTrail Not Configured",
@@ -61,6 +112,8 @@ def get_account_id():
 def infer_service_from_rule(rule_id):
     if rule_id.startswith("EC2"):
         return "EC2"
+    if rule_id.startswith("VPC"):
+        return "VPC"
     if rule_id.startswith("S3"):
         return "S3"
     if rule_id.startswith("LOG"):
@@ -75,6 +128,13 @@ def build_arn(service, resource):
         return f"arn:aws:s3:::{resource}"
     if service == "CloudTrail":
         return f"arn:aws:cloudtrail:{AWS_REGION}:{account_id}:trail/{resource}"
+    if service == "VPC":
+        if resource.startswith("vpc-"):
+            return f"arn:aws:ec2:{AWS_REGION}:{account_id}:vpc/{resource}"
+        if resource.startswith("subnet-"):
+            return f"arn:aws:ec2:{AWS_REGION}:{account_id}:subnet/{resource}"
+        if resource.startswith("rtb-"):
+            return f"arn:aws:ec2:{AWS_REGION}:{account_id}:route-table/{resource}"
     return None
 
 def add_finding(findings, rule_id, resource, description, service=None):
@@ -151,18 +211,6 @@ def check_ec2(findings):
                     service="EC2"
                 )
 
-def check_s3(findings, bucket_name):
-    """S3-001: Block Public Access not fully enabled."""
-    s3 = boto3.client("s3", region_name=AWS_REGION)
-    try:
-        response = s3.get_public_access_block(Bucket=bucket_name)
-        config   = response["PublicAccessBlockConfiguration"]
-        if not all(config.values()):
-            add_finding(
-                findings, "S3-001", bucket_name,
-                "S3 Block Public Access is not fully enabled.",
-                service="S3"
-            )
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
         msg = (
@@ -188,6 +236,30 @@ def run_scan():
     check_ec2(findings)
     check_s3(findings, S3_BUCKET_NAME)
     check_cloudtrail(findings)
+     run_vpc_checks(
+        findings=findings,
+        add_finding=lambda rule_id, resource, description: add_finding(
+            findings=findings,
+            rule_id=rule_id,
+            resource=resource,
+            description=description,
+            service="VPC"
+        ),
+        region=AWS_REGION
+    )
+     run_s3_checks(
+        findings=findings,
+        add_finding=lambda rule_id, resource, description: add_finding(
+            findings=findings,
+            rule_id=rule_id,
+            resource=resource,
+            description=description,
+            service="S3"
+        ),
+        region=AWS_REGION
+    )
+
+
     return findings
 
 # --------------------------------------------------
