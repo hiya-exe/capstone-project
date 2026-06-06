@@ -3,6 +3,7 @@ from botocore.exceptions import ClientError
 
 AWS_REGION = "ca-central-1"
 
+
 def _check_public_rds(findings, add_finding):
     rds = boto3.client("rds", region_name=AWS_REGION)
     try:
@@ -20,6 +21,7 @@ def _check_public_rds(findings, add_finding):
     except ClientError as e:
         print(f"[WARN] RDS public access check skipped: {e.response['Error']['Code']}")
 
+
 def _check_rds_encryption(findings, add_finding):
     rds = boto3.client("rds", region_name=AWS_REGION)
     try:
@@ -33,6 +35,7 @@ def _check_rds_encryption(findings, add_finding):
             add_finding(findings, "RDS-002", db_id, reason, evidence, service="RDS")
     except ClientError as e:
         print(f"[WARN] RDS encryption check skipped: {e.response['Error']['Code']}")
+
 
 def _check_backup_retention(findings, add_finding):
     rds = boto3.client("rds", region_name=AWS_REGION)
@@ -49,6 +52,7 @@ def _check_backup_retention(findings, add_finding):
     except ClientError as e:
         print(f"[WARN] RDS backup retention check skipped: {e.response['Error']['Code']}")
 
+
 def _check_auto_minor_version_upgrade(findings, add_finding):
     rds = boto3.client("rds", region_name=AWS_REGION)
     try:
@@ -62,6 +66,7 @@ def _check_auto_minor_version_upgrade(findings, add_finding):
             add_finding(findings, "RDS-004", db_id, reason, evidence, service="RDS")
     except ClientError as e:
         print(f"[WARN] RDS auto minor version check skipped: {e.response['Error']['Code']}")
+
 
 def run_rds_checks(findings, add_finding):
     _check_public_rds(findings, add_finding)
