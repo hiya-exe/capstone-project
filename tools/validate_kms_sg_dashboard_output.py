@@ -6,7 +6,7 @@ for the PoC dashboard. It checks that each finding has the fields needed
 for the dashboard table and dropdown drill-down, including evidence,
 CIS mapping, and remediation guidance.
 
-This supports Week 6 work:
+This supports the following:
 - Test and improve KMS + Security Group dashboard sections.
 - Validate dropdown details, evidence, and suggested fixes.
 - Confirm findings are clear enough for demo/report evidence.
