@@ -5,7 +5,14 @@ import os
 import json
 from datetime import datetime
 
-app = Flask(__name__)
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+
+app = Flask(
+    __name__,
+    template_folder=str(BASE_DIR.parent / "dashboard")
+)
 
 DB_PATH   = "capstone.db"
 JSON_PATH = "findings.json"
