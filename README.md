@@ -56,7 +56,7 @@ Team members will work on different parts of the project, including:
 
 ## Project Status
 
-The project is currently in active development. The team has completed initial research and planning and is now implementing service-specific AWS security checks, refining scanner logic, and preparing dashboard integration and findings display.
+The project is currently in active development. The team has completed initial research and planning and is now in active integration. A shared AWS test environment is live in ca-central-1, test coverage expansion and dashboard refinement are in propgress.
 
 ## Future Improvements
 
