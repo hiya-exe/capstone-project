@@ -1,333 +1,234 @@
-"""
-Unified AWS scanner runner for the capstone project.
-
-Purpose:
-- Runs all service check modules from one entry point.
-- Integrates EC2, IAM, RDS, EBS, S3, VPC, Security Groups, and KMS checks.
-- Prevents one failed service check from crashing the full scan.
-- Writes a combined JSON output that can be used by the Flask dashboard/backend.
-
-"Integrate all checks into one system and ensure it can run without errors."
-"""
-
 import json
-import sys
-import inspect
-import traceback
+import sqlite3
+import shutil
 from pathlib import Path
 from datetime import datetime
 
+DB_PATH = Path("capstone.db")
+JSON_PATH = Path("findings.json")
+BACKUP_PATH = Path("capstone_week7_backup.db")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_DIR = PROJECT_ROOT / "output"
-OUTPUT_FILE = OUTPUT_DIR / "unified_scan_results.json"
+now = datetime.now().isoformat()
 
-# Allows this file to run from project root or from inside scanner/
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+if not DB_PATH.exists():
+    raise FileNotFoundError("capstone.db was not found.")
 
+if not JSON_PATH.exists():
+    raise FileNotFoundError("findings.json was not found. Run week7_seed_all_services.py first.")
 
-def now_iso():
-    return datetime.utcnow().isoformat() + "Z"
+findings = json.load(open(JSON_PATH, "r", encoding="utf-8"))
 
+# Backup first
+shutil.copy(DB_PATH, BACKUP_PATH)
 
-def import_check(module_name, function_name):
-    """
-    Imports a service check function from scanner/checks.
-    This keeps imports centralized and makes failures easier to identify.
-    """
-    try:
-        module = __import__(f"scanner.checks.{module_name}", fromlist=[function_name])
-        return getattr(module, function_name)
-    except Exception as exc:
-        raise ImportError(f"Could not import {function_name} from {module_name}: {exc}") from exc
+conn = sqlite3.connect(DB_PATH)
+cur = conn.cursor()
 
+def table_info(table_name):
+    return cur.execute(f"PRAGMA table_info({table_name})").fetchall()
 
-def infer_service_from_rule(rule_id):
-    if rule_id.startswith("EC2"):
-        return "EC2"
-    if rule_id.startswith("IAM"):
-        return "IAM"
-    if rule_id.startswith("RDS"):
-        return "RDS"
-    if rule_id.startswith("EBS"):
-        return "EBS"
-    if rule_id.startswith("S3"):
-        return "S3"
-    if rule_id.startswith("VPC"):
-        return "VPC"
-    if rule_id.startswith("SG"):
-        return "Security Groups"
-    if rule_id.startswith("KMS"):
-        return "KMS"
-    if rule_id.startswith("LOG"):
-        return "CloudTrail"
-    return "Unknown"
+def pk_column(table_name):
+    for col in table_info(table_name):
+        if col[5] == 1:
+            return col[1], col[2]
+    return None, None
 
+def fallback_value(col_name, col_type):
+    name = col_name.lower()
+    col_type = (col_type or "").upper()
 
-def default_severity(rule_id):
-    """
-    Gives a safe default severity when a check file does not pass one directly.
-    This keeps the dashboard output consistent.
-    """
-    critical_prefixes = ("SG-001", "SG-002", "SG-003", "RDS-001", "EBS-004", "S3-005")
-    high_prefixes = ("EC2", "IAM", "S3", "RDS", "EBS", "KMS-002")
+    if "time" in name or "date" in name or name.endswith("_at"):
+        return now
+    if "status" in name:
+        return "completed"
+    if "count" in name or "total" in name:
+        return len(findings)
+    if "region" in name:
+        return "ca-central-1"
+    if "id" in name and "INT" in col_type:
+        return 1
+    if "INT" in col_type or "REAL" in col_type or "NUM" in col_type:
+        return 0
 
-    if rule_id in critical_prefixes:
-        return "Critical"
+    return "Week 7 all-service integration test"
 
-    if rule_id.startswith(high_prefixes):
-        return "High"
+def insert_dynamic(table_name, values):
+    info = table_info(table_name)
+    insert_cols = []
+    insert_vals = []
 
-    return "Medium"
+    for col in info:
+        col_name = col[1]
+        col_type = col[2]
+        not_null = col[3] == 1
+        default_value = col[4]
+        is_pk = col[5] == 1
+        is_integer_pk = is_pk and "INT" in (col_type or "").upper()
 
+        # Skip auto-increment integer primary keys
+        if is_integer_pk:
+            continue
 
-def default_cis_mapping(service):
-    mappings = {
-        "EC2": "CIS 4.1, CIS 12.1",
-        "IAM": "CIS 6.1, CIS 6.3",
-        "RDS": "CIS 3.4, CIS 4.1",
-        "EBS": "CIS 3.4",
-        "S3": "CIS 3.3, CIS 3.4",
-        "VPC": "CIS 4.1, CIS 8.5, CIS 12.1",
-        "Security Groups": "CIS 4.1, CIS 12.1",
-        "KMS": "CIS 3.7",
-        "CloudTrail": "CIS 8.5",
-    }
-    return mappings.get(service, "CIS mapping pending")
+        if col_name in values:
+            insert_cols.append(col_name)
+            insert_vals.append(values[col_name])
+        elif not_null and default_value is None:
+            insert_cols.append(col_name)
+            insert_vals.append(fallback_value(col_name, col_type))
 
-
-def add_finding(
-    findings,
-    rule_id,
-    resource,
-    description="",
-    evidence=None,
-    service=None,
-    severity=None,
-    remediation=None,
-    cis_mapping=None,
-    title=None,
-):
-    """
-    Shared finding builder used by all service checks.
-
-    It supports the style used by the existing check files:
-    add_finding(findings, rule_id, resource, description, evidence, service)
-
-    It also normalizes output for the dashboard by including both old/new field names:
-    - finding_code and rule_id
-    - compliance_status and status
-    """
-    service_name = service or infer_service_from_rule(rule_id)
-
-    if isinstance(evidence, list):
-        evidence_text = "; ".join(str(item) for item in evidence)
-    elif evidence is None:
-        evidence_text = "Evidence not provided by check module."
+    if insert_cols:
+        placeholders = ", ".join(["?"] * len(insert_cols))
+        col_list = ", ".join(insert_cols)
+        sql = f"INSERT INTO {table_name} ({col_list}) VALUES ({placeholders})"
+        cur.execute(sql, insert_vals)
     else:
-        evidence_text = str(evidence)
+        cur.execute(f"INSERT INTO {table_name} DEFAULT VALUES")
 
-    finding = {
+    pk_name, pk_type = pk_column(table_name)
+
+    if pk_name and pk_name in values and "INT" not in (pk_type or "").upper():
+        return values[pk_name]
+
+    return cur.lastrowid
+
+def clean_list(value):
+    if isinstance(value, list):
+        return ", ".join(value)
+    if value is None:
+        return ""
+    return str(value)
+
+tables = [row[0] for row in cur.execute(
+    "SELECT name FROM sqlite_master WHERE type='table'"
+).fetchall()]
+
+print("Tables found:", tables)
+print("Scans columns:", [col[1] for col in table_info("scans")])
+print("Resources columns:", [col[1] for col in table_info("resources")])
+print("Findings columns:", [col[1] for col in table_info("findings")])
+
+# Clear old demo data safely
+cur.execute("PRAGMA foreign_keys = OFF")
+for table in ["finding_cis_mappings", "findings", "resources", "scans"]:
+    if table in tables:
+        cur.execute(f"DELETE FROM {table}")
+
+# Create scan row using only columns that exist
+scan_id = insert_dynamic("scans", {
+    "scan_id": "week7-all-services-scan",
+    "started_at": now,
+    "completed_at": now,
+    "created_at": now,
+    "updated_at": now,
+    "status": "completed",
+    "scan_status": "completed",
+    "region": "ca-central-1",
+    "account_id": "week7-test-account",
+    "total_findings": len(findings),
+    "findings_count": len(findings),
+    "name": "Week 7 all-service integration test",
+    "scan_name": "Week 7 all-service integration test"
+})
+
+print("Created scan_id:", scan_id)
+
+def find_or_create_control(control_text, service):
+    if "cis_controls" not in tables:
+        return None
+
+    control_cols = [col[1] for col in table_info("cis_controls")]
+    pk_name, pk_type = pk_column("cis_controls")
+
+    # Try to find existing control
+    for possible_col in ["control_code", "control_id", "code", "cis_control", "control"]:
+        if possible_col in control_cols:
+            existing = cur.execute(
+                f"SELECT {pk_name or possible_col} FROM cis_controls WHERE {possible_col} = ?",
+                (control_text,)
+            ).fetchone()
+            if existing:
+                return existing[0]
+            break
+
+    values = {
+        "control_id": control_text,
+        "control_code": control_text,
+        "code": control_text,
+        "cis_control": control_text,
+        "control": control_text,
+        "control_title": f"{control_text} mapped control",
+        "title": f"{control_text} mapped control",
+        "control_description": f"Auto-seeded Week 7 mapping for {service}",
+        "description": f"Auto-seeded Week 7 mapping for {service}"
+    }
+
+    return insert_dynamic("cis_controls", values)
+
+for finding in findings:
+    service = finding.get("service", "Unknown")
+    resource_name = finding.get("resource", "unknown-resource")
+    rule_id = finding.get("finding_code") or finding.get("rule_id")
+
+    # Create resource row
+    resource_pk = insert_dynamic("resources", {
+        "scan_id": scan_id,
+        "service": service,
+        "resource_id": resource_name,
+        "resource_identifier": resource_name,
+        "resource_name": resource_name,
+        "name": resource_name,
+        "resource_type": service,
+        "type": service,
+        "region": "ca-central-1",
+        "account_id": "week7-test-account"
+    })
+
+    # Create finding row
+    finding_pk = insert_dynamic("findings", {
+        "scan_id": scan_id,
+        "resource_id": resource_pk,
         "finding_code": rule_id,
         "rule_id": rule_id,
-        "title": title or f"{service_name} finding: {rule_id}",
-        "service": service_name,
-        "resource": str(resource),
-        "description": description or "No description provided.",
-        "evidence": evidence_text,
-        "severity": severity or default_severity(rule_id),
-        "compliance_status": "FAIL",
-        "status": "FAIL",
-        "remediation": remediation or "Review the affected AWS resource and apply least privilege, encryption, logging, or restricted access based on the finding.",
-        "cis_mapping": cis_mapping or default_cis_mapping(service_name),
-        "detected_at": now_iso(),
-    }
+        "title": finding.get("title"),
+        "description": finding.get("evidence"),
+        "evidence": finding.get("evidence"),
+        "severity": finding.get("severity", "HIGH"),
+        "compliance_status": finding.get("compliance_status", finding.get("status", "FAIL")),
+        "status": finding.get("status", "FAIL"),
+        "remediation": finding.get("remediation"),
+        "detected_at": now,
+        "created_at": now,
+        "updated_at": now,
+        "service": service,
+        "cis_mapping": clean_list(finding.get("cis_mapping") or finding.get("cis_controls"))
+    })
 
-    findings.append(finding)
+    # Create CIS mappings if mapping table exists
+    if "finding_cis_mappings" in tables:
+        controls = finding.get("cis_mapping") or finding.get("cis_controls") or []
+        if isinstance(controls, str):
+            controls = [controls]
 
+        for control in controls:
+            control_pk = find_or_create_control(control, service)
 
-SERVICES = [
-    {
-        "name": "EC2",
-        "module": "ec2_checks",
-        "function": "run_ec2_checks",
-    },
-    {
-        "name": "IAM",
-        "module": "iam_checks",
-        "function": "run_iam_checks",
-    },
-    {
-        "name": "RDS",
-        "module": "rds_checks",
-        "function": "run_rds_checks",
-    },
-    {
-        "name": "EBS",
-        "module": "ebs_checks",
-        "function": "run_ebs_checks",
-    },
-    {
-        "name": "S3",
-        "module": "s3_checks",
-        "function": "run_s3_checks",
-    },
-    {
-        "name": "VPC",
-        "module": "vpc_checks",
-        "function": "run_vpc_checks",
-    },
-    {
-        "name": "Security Groups",
-        "module": "sg_checks",
-        "function": "run_sg_checks",
-    },
-    {
-        "name": "KMS",
-        "module": "kms_checks",
-        "function": "run_kms_checks",
-    },
-]
+            if control_pk is not None:
+                insert_dynamic("finding_cis_mappings", {
+                    "finding_id": finding_pk,
+                    "control_id": control_pk,
+                    "scan_id": scan_id
+                })
 
+conn.commit()
 
-def call_check_function(check_function, findings):
-    """
-    Calls check functions even if team members used slightly different function styles.
-    Supports:
-    - run_x_checks(findings, add_finding)
-    - run_x_checks(findings)
-    - run_x_checks()
-    """
-    signature = inspect.signature(check_function)
-    param_count = len(signature.parameters)
+count = cur.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
+print("Database findings count:", count)
 
-    if param_count >= 2:
-        result = check_function(findings, add_finding)
-    elif param_count == 1:
-        result = check_function(findings)
-    else:
-        result = check_function()
+print("Services seeded from findings.json:")
+for service in sorted({finding.get("service", "Unknown") for finding in findings}):
+    print(f"- {service}")
 
-    if isinstance(result, list):
-        findings.extend(result)
+conn.close()
 
-
-def run_service(service_config, findings):
-    service_name = service_config["name"]
-    before_count = len(findings)
-
-    try:
-        check_function = import_check(service_config["module"], service_config["function"])
-        call_check_function(check_function, findings)
-
-        added_count = len(findings) - before_count
-
-        return {
-            "service": service_name,
-            "status": "completed",
-            "findings_added": added_count,
-            "error": None,
-        }
-
-    except Exception as exc:
-        return {
-            "service": service_name,
-            "status": "skipped_with_error",
-            "findings_added": 0,
-            "error": {
-                "type": type(exc).__name__,
-                "message": str(exc),
-                "traceback": traceback.format_exc(limit=2),
-            },
-        }
-
-
-def summarize_by_severity(findings):
-    summary = {
-        "Critical": 0,
-        "High": 0,
-        "Medium": 0,
-        "Low": 0,
-        "Informational": 0,
-    }
-
-    for finding in findings:
-        severity = finding.get("severity", "Informational")
-        summary[severity] = summary.get(severity, 0) + 1
-
-    return summary
-
-
-def summarize_by_service(findings):
-    summary = {}
-
-    for finding in findings:
-        service = finding.get("service", "Unknown")
-        summary[service] = summary.get(service, 0) + 1
-
-    return summary
-
-
-def run_unified_scan():
-    findings = []
-    service_results = []
-
-    print("\n=== Unified AWS Security Scanner ===")
-    print("Running all service checks from one entry point...\n")
-
-    for service_config in SERVICES:
-        result = run_service(service_config, findings)
-        service_results.append(result)
-
-        if result["status"] == "completed":
-            print(f"[OK] {result['service']}: {result['findings_added']} finding(s) added")
-        else:
-            print(f"[SKIP] {result['service']}: {result['error']['type']} - {result['error']['message']}")
-
-    output = {
-        "scan_time": now_iso(),
-        "runner": "scanner/unified_runner.py",
-        "total_services_attempted": len(SERVICES),
-        "services_completed": sum(1 for item in service_results if item["status"] == "completed"),
-        "services_skipped_with_error": sum(1 for item in service_results if item["status"] == "skipped_with_error"),
-        "total_findings": len(findings),
-        "summary_by_severity": summarize_by_severity(findings),
-        "summary_by_service": summarize_by_service(findings),
-        "service_results": service_results,
-        "findings": findings,
-    }
-
-    return output
-
-
-def save_output(output):
-    OUTPUT_DIR.mkdir(exist_ok=True)
-
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as file:
-        json.dump(output, file, indent=4)
-
-    print(f"\nUnified scan output saved to: {OUTPUT_FILE}")
-
-
-def main():
-    output = run_unified_scan()
-    save_output(output)
-
-    print("\n=== Unified Scan Summary ===")
-    print(f"Services attempted: {output['total_services_attempted']}")
-    print(f"Services completed: {output['services_completed']}")
-    print(f"Services skipped with error: {output['services_skipped_with_error']}")
-    print(f"Total findings: {output['total_findings']}")
-
-    print("\nFindings by service:")
-    for service, count in output["summary_by_service"].items():
-        print(f"- {service}: {count}")
-
-    print("\nFindings by severity:")
-    for severity, count in output["summary_by_severity"].items():
-        print(f"- {severity}: {count}")
-
-
-if __name__ == "__main__":
-    main()
+print("Done. capstone.db has been updated with Week 7 all-service findings.")
+print(f"Backup saved as: {BACKUP_PATH}")
