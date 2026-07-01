@@ -1,3 +1,4 @@
+import sys
 import boto3
 import sqlite3
 import json
@@ -12,11 +13,14 @@ from scanner.checks.s3_checks import run_s3_checks
 from scanner.checks.sg_checks import run_sg_checks
 from scanner.checks.vpc_checks import run_vpc_checks
 from scanner.checks.kms_checks import run_kms_checks
+from scanner.profiles import get_profile, GENERAL_PROFILE
+from scanner.db_profiles import adjust_severity, get_engine_note
 
 DB_PATH = "capstone.db"
 JSON_OUTPUT_PATH = "findings.json"
 AWS_PROFILE = "default"
 AWS_REGION = "ca-central-1"
+BUSINESS_PROFILE = sys.argv[1] if len(sys.argv) > 1 else GENERAL_PROFILE
 
 RULES = {
     "EC2-001": {
@@ -351,8 +355,21 @@ def build_arn(service, resource):
         return f"arn:aws:kms:{AWS_REGION}:{account_id}:key/{resource}"
     return None
 
-def add_finding(findings, rule_id, resource, risk, evidence=None, service=None):
+def add_finding(findings, rule_id, resource, risk, evidence=None, service=None, db_context=None):
     rule = RULES[rule_id]
+    profile = get_profile(BUSINESS_PROFILE)
+    severity = profile["severity_overrides"].get(rule_id, rule["severity"])
+    business_mapping = profile["framework_mapping"].get(rule_id)
+
+    engine = None
+    environment = None
+    engine_note = None
+    if db_context:
+        environment = db_context.get("environment")
+        engine = db_context.get("engine")
+        severity = adjust_severity(severity, environment)
+        engine_note = get_engine_note(engine)
+
     findings.append({
         "finding_code": rule_id,
         "title": rule["title"],
@@ -360,10 +377,15 @@ def add_finding(findings, rule_id, resource, risk, evidence=None, service=None):
         "description": risk,
         "evidence": evidence,
         "risk": rule["risk"],
-        "severity": rule["severity"],
+        "severity": severity,
         "compliance_status": "FAIL",
         "remediation": rule["remediation"],
         "cis_mapping": rule["cis_mapping"],
+        "business_framework": profile["framework"],
+        "business_mapping": business_mapping,
+        "db_engine": engine,
+        "db_environment": environment,
+        "db_engine_note": engine_note,
         "service": service or infer_service_from_rule(rule_id),
         "detected_at": now_iso()
     })
@@ -435,7 +457,7 @@ def get_or_create_cis_control(cursor, control_code):
 
 def insert_scan(cursor, account_id):
     ts = now_iso()
-    cursor.execute("INSERT INTO scans (aws_profile, aws_account_id, region, service, scan_type, started_at, completed_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (AWS_PROFILE, account_id, AWS_REGION, "Multi-Service", "PoC Manual Scan", ts, ts, "completed"))
+    cursor.execute("INSERT INTO scans (aws_profile, aws_account_id, region, service, scan_type, started_at, completed_at, status, business_profile) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (AWS_PROFILE, account_id, AWS_REGION, "Multi-Service", "PoC Manual Scan", ts, ts, "completed", BUSINESS_PROFILE))
     return cursor.lastrowid
 
 def insert_resource(cursor, scan_id, finding):
@@ -443,7 +465,10 @@ def insert_resource(cursor, scan_id, finding):
     return cursor.lastrowid
 
 def insert_finding(cursor, scan_id, resource_id, finding):
-    cursor.execute("INSERT INTO findings (scan_id, resource_id, finding_code, title, description, severity, compliance_status, remediation, evidence, detected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (scan_id, resource_id, finding["finding_code"], finding["title"], finding["description"], finding["severity"], finding["compliance_status"], finding["remediation"], finding.get("evidence"), finding["detected_at"]))
+    cursor.execute(
+        "INSERT INTO findings (scan_id, resource_id, finding_code, title, description, severity, compliance_status, remediation, evidence, detected_at, business_framework, business_mapping, db_engine, db_environment, db_engine_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (scan_id, resource_id, finding["finding_code"], finding["title"], finding["description"], finding["severity"], finding["compliance_status"], finding["remediation"], finding.get("evidence"), finding["detected_at"], finding.get("business_framework"), finding.get("business_mapping"), finding.get("db_engine"), finding.get("db_environment"), finding.get("db_engine_note"))
+    )
     return cursor.lastrowid
 
 def insert_finding_cis_mappings(cursor, finding_id, cis_controls):
@@ -470,6 +495,7 @@ def save_findings_to_json(findings):
     output = {
         "scan_time": now_iso(),
         "aws_profile": AWS_PROFILE,
+        "business_profile": BUSINESS_PROFILE,
         "region": AWS_REGION,
         "total_findings": len(findings),
         "summary": summarize_findings(findings),
