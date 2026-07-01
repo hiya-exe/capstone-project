@@ -3,10 +3,10 @@ from botocore.exceptions import ClientError
 
 AWS_REGION = "ca-central-1"
 
- 
+
 def _iter_paged(client, method_name, result_key, **kwargs):
     paginator = client.get_paginator(method_name)
-    for page in paginator.paginate(**kwargs): 
+    for page in paginator.paginate(**kwargs):
         for item in page.get(result_key, []):
             yield item
 
