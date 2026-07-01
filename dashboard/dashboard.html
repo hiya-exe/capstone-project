@@ -24,11 +24,24 @@
     .overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.85);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:12px} .overlay.on{display:flex} .spin{width:36px;height:36px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite} @keyframes spin{to{transform:rotate(360deg)}} .overlay-txt{font-family:var(--mono);font-size:11px;color:var(--t2);letter-spacing:.1em}
     .toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border2);border-left:2px solid var(--low);border-radius:var(--r);padding:9px 16px;font-family:var(--mono);font-size:11px;color:var(--t1);opacity:0;transform:translateY(6px);transition:.2s;z-index:300;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.12)} .toast.show{opacity:1;transform:translateY(0)}
     @media (max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr)} .two-col{grid-template-columns:1fr} .svc-grid{grid-template-columns:repeat(2,1fr)}} @media (max-width:820px){.sidebar{display:none}.main{padding:16px 14px 40px}.kpi-row{grid-template-columns:repeat(2,1fr)} .svc-grid{grid-template-columns:1fr} .drow-grid{grid-template-columns:1fr}}
+    .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(20,24,32,.5);z-index:400;align-items:center;justify-content:center;padding:24px} .modal-backdrop.on{display:flex} .modal-box{background:var(--surface);border-radius:var(--r2);max-width:640px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)} .modal-hd{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);position:sticky;top:0} .modal-title{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--t1);letter-spacing:.08em;text-transform:uppercase} .modal-close{background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer;line-height:1} .modal-body{padding:18px 22px} .modal-sec{margin-bottom:16px} .modal-sec-lbl{font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--t3);letter-spacing:.16em;text-transform:uppercase;margin-bottom:7px} .modal-sec-txt{font-size:12.5px;color:var(--t2);line-height:1.65} .modal-kpis{display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap} .modal-kpi{flex:1;min-width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;text-align:center} .modal-kpi b{display:block;font-family:var(--mono);font-size:18px;color:var(--t1)} .modal-kpi span{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em} .modal-list{list-style:none;display:flex;flex-direction:column;gap:6px} .modal-list li{font-size:12px;color:var(--t2);padding-left:14px;position:relative;line-height:1.5} .modal-list li:before{content:'—';position:absolute;left:0;color:var(--t3)} .modal-ft{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:var(--surface2);position:sticky;bottom:0}
   </style>
 </head>
 <body>
 <div id="overlay" class="overlay"><div class="spin"></div><div class="overlay-txt">Scanning AWS environment</div></div>
 <div id="toast" class="toast"></div>
+<div id="summaryModal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-hd"><span class="modal-title">Scan Complete — Business Impact Summary</span><button class="modal-close" onclick="closeSummaryModal()">&times;</button></div>
+    <div class="modal-body" id="summaryModalBody">
+      <div style="text-align:center;padding:30px;font-family:var(--mono);font-size:11px;color:var(--t3)">Loading summary...</div>
+    </div>
+    <div class="modal-ft">
+      <a class="btn-ghost" href="/download-business-report" style="padding:8px 14px">Download Report</a>
+      <button class="btn-primary" style="border:none" onclick="closeSummaryModal()">Close</button>
+    </div>
+  </div>
+</div>
 <div class="shell">
   <aside class="sidebar">
     <div class="brand"><div class="brand-row"><div class="brand-dot"></div><div class="brand-name">Multi-Benchmark Security PoC</div></div><div class="brand-tag">AWS Cloud Security</div></div>
@@ -43,6 +56,11 @@
       <a class="nav-link" href="/download-summary"><span class="nav-ico">◌</span> Full Report</a>
     </nav>
     <div class="sidebar-foot">
+      <select class="fsel" id="profileSel" style="width:100%;margin-bottom:6px">
+        {% for key, p in profiles.items() %}
+        <option value="{{ key }}" {{ 'selected' if key == selected_profile }}>{{ p.label }}</option>
+        {% endfor %}
+      </select>
       <a class="btn-primary" href="/scan" id="scanBtn">Run New Scan</a>
       <a class="btn-ghost" href="/download-summary">Download JSON</a>
     </div>
@@ -59,6 +77,8 @@
         <div class="chip">Region <b>{{ latest_scan["region"] }}</b></div>
         <div class="chip">Scan <b>#{{ latest_scan["scan_id"] }}</b></div>
         <div class="chip">Profile <b>{{ latest_scan["aws_profile"] }}</b></div>
+        <div class="chip">Business Context <b>{{ profiles[selected_profile].label }}</b></div>
+        <div class="chip">Framework <b>{{ profiles[selected_profile].framework }}</b></div>
         {% endif %}
       </div>
     </div>
@@ -147,7 +167,7 @@
                 <td><span class="badge {{ 'bf' if f['compliance_status']=='FAIL' else 'bp' if f['compliance_status']=='PASS' else 'br' }}" id="sbadge-{{ loop.index }}">{{ f['compliance_status'] }}</span></td>
                 <td>{% if f['cis_mapping'] %}<div class="cis-wrap">{% for c in f['cis_mapping'].split(', ') %}<span class="cis-dot">{{ c }}</span>{% endfor %}</div>{% else %}<span style="color:var(--t3);font-family:var(--mono);font-size:10px">—</span>{% endif %}</td>
                 <td style="font-family:var(--mono);font-size:10px;color:var(--t3)">{{ f['resource'] }}</td>
-                <td onclick="event.stopPropagation()">{% if f['compliance_status']=='REMEDIATED' %}<button class="rem-btn done" disabled>Done</button>{% else %}<button class="rem-btn" id="rem-{{ loop.index }}" onclick="markFixed({{ loop.index }}, this)">Mark Fixed</button>{% endif %}</td>
+                <td onclick="event.stopPropagation()">{% if f['compliance_status']=='REMEDIATED' %}<button class="rem-btn done" disabled>Done</button>{% else %}<button class="rem-btn" id="rem-{{ loop.index }}" onclick="markFixed({{ loop.index }}, {{ f['finding_id'] }}, this)">Mark Fixed</button>{% endif %}</td>
               </tr>
               <tr class="drow" id="detail-{{ loop.index }}"><td colspan="8"><div class="drow-inner"><div class="drow-grid">
                 <div>
@@ -157,6 +177,16 @@
                   <div class="drow-val">{{ f['remediation'] or 'No guidance available.' }}</div>
                   <div class="drow-lbl" style="margin-top:10px">Evidence</div>
                   <div class="drow-val" style="font-family:var(--mono);font-size:11px;word-break:break-all">{{ f['evidence'] or '—' }}</div>
+                  {% if f['business_mapping'] %}
+                  <div class="drow-lbl" style="margin-top:10px">{{ f['business_framework'] }} Mapping</div>
+                  <div class="drow-val">{{ f['business_mapping'] }}</div>
+                  {% endif %}
+                  {% if f['db_environment'] %}
+                  <div class="drow-lbl" style="margin-top:10px">Database Context</div>
+                  <div class="drow-val">{{ f['db_engine'] }} &middot; {{ f['db_environment']|title }} environment</div>
+                  <div class="drow-lbl" style="margin-top:10px">Remediation Cost/Benefit</div>
+                  <div class="drow-val">{{ f['db_engine_note'] }}</div>
+                  {% endif %}
                 </div>
                 <div>
                   <div class="drow-lbl">Compliance Status</div>
@@ -412,14 +442,78 @@ function applyFilters(){
 }
 function resetFilters(){['fSev','fStatus','fCode','fCis'].forEach(id => document.getElementById(id).value='all'); applyFilters();}
 function toggleRow(idx){ const dr=document.getElementById('detail-'+idx), btn=document.getElementById('exp-'+idx); if(!dr) return; const open = dr.classList.contains('open'); dr.classList.toggle('open', !open); dr.style.display = open ? 'none' : 'table-row'; btn.classList.toggle('open', !open); }
-async function markFixed(idx, btn){
-  btn.textContent='...'; btn.disabled=true;
-  try{ await fetch('/api/remediate/'+idx, {method:'POST'}); const b=document.getElementById('sbadge-'+idx); if(b){ b.textContent='REMEDIATED'; b.className='badge br'; } btn.textContent='Done'; btn.classList.add('done'); btn.closest('tr').dataset.status='REMEDIATED'; toast('Finding marked as remediated.'); }
-  catch(e){ btn.textContent='Mark Fixed'; btn.disabled=false; }
+async function markFixed(idx, findingId, btn){
+  const original = btn.textContent;
+  btn.textContent='Rescanning...'; btn.disabled=true;
+  try{
+    const res = await fetch('/api/verify/'+findingId, {method:'POST'});
+    const data = await res.json();
+    if (!res.ok || data.error){
+      alert('Could not verify this finding: ' + (data.error || 'unknown error'));
+      btn.textContent=original; btn.disabled=false;
+      return;
+    }
+    if (!data.resolved){
+      alert('Rescan shows this issue is still present on ' + data.resource + '. Not marking as fixed.');
+      btn.textContent=original; btn.disabled=false;
+      return;
+    }
+    const confirmed = confirm('Rescan confirms ' + data.finding_code + ' on ' + data.resource + ' is resolved. Mark this finding as fixed?');
+    if (!confirmed){
+      btn.textContent=original; btn.disabled=false;
+      return;
+    }
+    btn.textContent='...';
+    await fetch('/api/remediate/'+findingId, {method:'POST'});
+    const b=document.getElementById('sbadge-'+idx); if(b){ b.textContent='REMEDIATED'; b.className='badge br'; }
+    btn.textContent='Done'; btn.classList.add('done'); btn.closest('tr').dataset.status='REMEDIATED';
+    toast('Finding verified and marked as remediated.');
+  } catch(e){
+    alert('Verification request failed: ' + e);
+    btn.textContent=original; btn.disabled=false;
+  }
 }
 function toast(msg){const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000);}
+function updateScanLink(){ const sel=document.getElementById('profileSel'); document.getElementById('scanBtn').href = '/scan?profile=' + encodeURIComponent(sel.value); }
+document.getElementById('profileSel').addEventListener('change', updateScanLink);
 function switchBench(key){ document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('active', ['cis','nist','waf'][i]===key)); document.querySelectorAll('.bench-pane').forEach(p => p.classList.toggle('active', p.id==='pane-'+key)); }
-window.addEventListener('DOMContentLoaded', () => { drawCharts(); renderServicePosture(); renderBench(); renderChains(); applyFilters(); });
+function closeSummaryModal(){ document.getElementById('summaryModal').classList.remove('on'); }
+async function showSummaryModalIfJustScanned(){
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('scanned') !== '1') return;
+  const modal = document.getElementById('summaryModal');
+  const body = document.getElementById('summaryModalBody');
+  modal.classList.add('on');
+  try{
+    const res = await fetch('/api/business-summary');
+    const s = await res.json();
+    if (!res.ok || s.error){ body.innerHTML = `<div class="modal-sec-txt">Could not load summary: ${s.error || 'unknown error'}</div>`; return; }
+    const sevColor = {Critical:'var(--crit)',High:'var(--high)',Medium:'var(--med)',Low:'var(--low)'};
+    body.innerHTML = `
+      <div class="modal-sec">
+        <div class="modal-kpis">
+          <div class="modal-kpi"><b>${s.score}</b><span>Score</span></div>
+          <div class="modal-kpi"><b style="color:${sevColor.Critical}">${s.summary.Critical}</b><span>Critical</span></div>
+          <div class="modal-kpi"><b style="color:${sevColor.High}">${s.summary.High}</b><span>High</span></div>
+          <div class="modal-kpi"><b style="color:${sevColor.Medium}">${s.summary.Medium}</b><span>Medium</span></div>
+          <div class="modal-kpi"><b style="color:${sevColor.Low}">${s.summary.Low}</b><span>Low</span></div>
+        </div>
+        <div class="modal-sec-txt" style="margin-top:4px">Business Context: <b>${s.business_profile_label}</b> (${s.framework})</div>
+      </div>
+      <div class="modal-sec"><div class="modal-sec-lbl">Overview</div><div class="modal-sec-txt">${s.posture_line}</div></div>
+      <div class="modal-sec"><div class="modal-sec-lbl">Business Impact</div><ul class="modal-list">${s.impact_lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>
+      ${s.top_findings.length ? `<div class="modal-sec"><div class="modal-sec-lbl">Top Findings Requiring Attention</div><ul class="modal-list">${s.top_findings.map(f=>`<li><b>[${f.severity}]</b> ${f.finding_code} — ${f.title} (${f.resource})</li>`).join('')}</ul></div>` : ''}
+      <div class="modal-sec"><div class="modal-sec-lbl">Recommended Actions</div><ul class="modal-list">${s.recommended_actions.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+      <div class="modal-sec"><div class="modal-sec-lbl">Why This Matters To The Business</div><div class="modal-sec-txt">${s.benefit_statement}</div></div>
+    `;
+  } catch(e){
+    body.innerHTML = `<div class="modal-sec-txt">Failed to load summary: ${e}</div>`;
+  }
+  const url = new URL(window.location);
+  url.searchParams.delete('scanned');
+  window.history.replaceState({}, '', url);
+}
+window.addEventListener('DOMContentLoaded', () => { drawCharts(); renderServicePosture(); renderBench(); renderChains(); applyFilters(); updateScanLink(); showSummaryModalIfJustScanned(); });
 </script>
 </body>
 </html>
