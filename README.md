@@ -56,7 +56,13 @@ Team members will work on different parts of the project, including:
 
 ## Project Status
 
-The project is currently in active development. The team has completed initial research and planning and is now in active integration. A shared AWS test environment is live in ca-central-1, test coverage expansion and dashboard refinement are in propgress.
+The project is currently in active development. Initial research, planning, and AWS environment 
+setup are complete. The team is now in active integration and testing.
+
+A shared AWS test environment is live in ca-central-1 with secure and insecure test 
+configurations for KMS and RDS. The unified scanner covers 8 AWS services with business 
+profile support, post-scan impact summaries, and a verify-before-remediate flow. 
+Dashboard refinement and live scan validation are in progress.
 
 ## Future Improvements
 
