@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import reportlab\")",
+      "Bash(python -c \"import fpdf\")",
+      "Bash(python -c \"import weasyprint\")",
+      "Bash(dir /b)",
+      "Read(//c/Users/mehak/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/d5c3d196-8bc9-4c47-ac53-cb6a629c5434/00f82d82-342f-4381-9def-f6204ffe6d97/skills/docx/**)",
+      "Bash(python scripts/office/unpack.py \"C:\\\\Users\\\\mehak\\\\OneDrive\\\\Desktop\\\\Sem8\\\\Capstone Phase 2\\\\Mehak Phase 2 weekly reports\\\\INFO49402_Weekly_Personal_Activity_Week_7.docx\" unpacked_template/)",
+      "Bash(pip install *)",
+      "Bash(python -m pip install defusedxml -q)"
+    ]
+  }
+}
