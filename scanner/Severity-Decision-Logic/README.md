@@ -151,8 +151,7 @@ one-level escalation above baseline; `▲▲` marks a two-level escalation.
 | KMS-005 | KMS key has no alias | Low | Low | Low | Low | Low |
 | LOG-001 | No CloudTrail trail configured | High | High | High | Critical ▲ | Critical ▲ |
 
-For the framework clause behind each escalation and the reasoning, see
-[Business Profile Severity Overrides](../Business-Profile-Severity-Overrides/README.md).
+For the framework clause behind each escalation and the reasoning, see **Business Profile Severity Overrides**.
 
 ## The RDS environment shift
 
