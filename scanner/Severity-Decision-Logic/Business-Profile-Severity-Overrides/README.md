@@ -4,7 +4,7 @@ This document lists every case where a sector business profile raises a finding'
 above its technical baseline, the compliance framework driving the change, and the reasoning.
 
 Baselines come from the `RULES` table in `scanner.py`. Overrides and framework mappings come from
-`scanner/profiles.py`. See [Severity Decision Logic](./Severity-Decision-Logic/README.md) for the full model and the
+`scanner/profiles.py`. See **Severity Decision Logic** for the full model and the
 complete per-rule severity table.
 
 ## How to read this
