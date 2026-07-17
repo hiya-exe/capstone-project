@@ -11,11 +11,15 @@
     .shell{display:flex;min-height:100vh}.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;box-shadow:1px 0 0 var(--border)}
     .brand{padding:20px 18px 16px;border-bottom:1px solid var(--border)} .brand-row{display:flex;align-items:center;gap:9px;margin-bottom:3px} .brand-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0} .brand-name{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--t1);letter-spacing:.04em} .brand-tag{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.14em;text-transform:uppercase;margin-left:17px}
     .nav{flex:1;padding:14px 0} .nav-section{font-family:var(--mono);font-size:8.5px;color:var(--t3);letter-spacing:.2em;text-transform:uppercase;padding:8px 18px 5px} .nav-link{display:flex;align-items:center;gap:9px;padding:7px 18px;color:var(--t2);font-size:12.5px;font-weight:400;text-decoration:none;border-left:2px solid transparent} .nav-link:hover{color:var(--t1);background:var(--surface2)} .nav-link.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-bg);font-weight:500}
-    .sidebar-foot{padding:12px 14px 18px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px} .btn-primary,.btn-ghost{display:block;text-align:center;text-decoration:none;border-radius:var(--r);font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;padding:9px 12px} .btn-primary{background:var(--accent);color:#fff;font-weight:700} .btn-ghost{background:none;color:var(--t3);border:1px solid var(--border2);font-weight:500}
+    .sidebar-foot{padding:12px 14px 18px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px} .btn-primary,.btn-ghost,.btn-danger{display:block;width:100%;text-align:center;text-decoration:none;border-radius:var(--r);font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;padding:9px 12px;cursor:pointer} .btn-primary{background:var(--accent);color:#fff;font-weight:700;border:none} .btn-ghost{background:none;color:var(--t3);border:1px solid var(--border2);font-weight:500} .btn-danger{background:none;color:var(--crit);border:1px solid rgba(192,57,43,.35);font-weight:500} .btn-danger:hover{background:var(--crit-bg)} .btn-danger:disabled{opacity:.5;cursor:default}
     .main{flex:1;min-width:0;padding:28px 32px 60px} .page-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:26px} .page-eyebrow{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.2em;text-transform:uppercase;margin-bottom:4px} .page-title{font-size:20px;font-weight:600;color:var(--t1);letter-spacing:-.01em} .meta-chips{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;padding-top:4px} .chip{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-family:var(--mono);font-size:10px;color:var(--t3);white-space:nowrap;box-shadow:var(--shadow)} .chip b{color:var(--t2);font-weight:600}
     .sec{margin-bottom:24px} .sec-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px} .sec-title{font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--t3);letter-spacing:.2em;text-transform:uppercase;white-space:nowrap} .sec-line{flex:1;height:1px;background:var(--border)} .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px} .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 16px 13px;position:relative;overflow:hidden;box-shadow:var(--shadow)} .kpi-accent-bar{position:absolute;top:0;left:0;right:0;height:3px;background:var(--bar-color,var(--accent))} .kpi-lbl{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--t3);letter-spacing:.16em;text-transform:uppercase;margin-bottom:7px} .kpi-val{font-family:var(--mono);font-size:30px;font-weight:700;line-height:1;color:var(--bar-color,var(--t1))} .kpi-sub{font-size:11px;color:var(--t3);margin-top:5px} .kpi-score{--bar-color:var(--accent)} .kpi-crit{--bar-color:var(--crit)} .kpi-high{--bar-color:var(--high)} .kpi-med{--bar-color:var(--med)} .kpi-low{--bar-color:var(--low)} .status-good{color:var(--low);font-weight:600} .status-fair{color:var(--med);font-weight:600} .status-poor{color:var(--crit);font-weight:600}
     .two-col{display:grid;grid-template-columns:1fr 280px;gap:14px} .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;box-shadow:var(--shadow)} .panel-hd{padding:11px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)} .panel-title{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--t2);letter-spacing:.12em;text-transform:uppercase} .panel-sub{font-family:var(--mono);font-size:10px;color:var(--t3)} .panel-body{padding:16px 18px;background:var(--surface)} .gauge-wrap{text-align:center} .gauge-num{font-family:var(--mono);font-size:36px;font-weight:700;color:var(--t1);line-height:1;margin-top:-6px} .gauge-status{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;margin-top:3px}
     .scan-details{margin-top:14px;display:flex;flex-direction:column} .scan-dr{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)} .scan-dr:last-child{border:none} .scan-dr span{color:var(--t3);font-family:var(--mono);font-size:10px} .scan-dr b{color:var(--t1);font-size:11px;font-weight:500}
+    .trend-wrap{flex:0 0 180px;align-self:stretch;border-left:1px solid var(--border);padding-left:18px;display:flex;flex-direction:column;justify-content:center;gap:5px} .trend-lbl{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--t3);letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px} .trend-score{font-family:var(--mono);font-size:22px;font-weight:700;line-height:1;margin-bottom:4px} .trend-score-sub{font-size:10px;font-weight:500;color:var(--t3)} .trend-row{display:flex;justify-content:space-between;font-size:11px;color:var(--t3);font-family:var(--mono)} .trend-row span:last-child{font-weight:700} .trend-empty{font-size:11px;color:var(--t3);line-height:1.5}
+    .sevdist-row{cursor:pointer;border-radius:4px;padding:3px 4px;margin:-3px -4px;transition:.12s} .sevdist-row:hover{background:var(--surface2)} .sevdist-row.active{background:var(--accent-bg)} .sevdist-pct{font-family:var(--mono);font-size:9.5px;color:var(--t3);min-width:30px;text-align:right}
+    .sevdist-services{display:none;flex-wrap:wrap;align-items:center;gap:6px;margin-top:2px;padding-top:9px;border-top:1px solid var(--border)} .sevdist-services.open{display:flex} .sevdist-services-lbl{font-family:var(--mono);font-size:9.5px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-right:2px}
+    .sevdist-callout{flex:1 1 100%;display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;border-radius:var(--r);text-decoration:none;transition:.15s} .sevdist-callout-info{background:var(--accent-bg);border:1px solid rgba(59,111,212,.3)} .sevdist-callout-info:hover{background:rgba(59,111,212,.13)} .sevdist-callout-danger{background:var(--crit-bg);border:1px solid rgba(192,57,43,.3)} .sevdist-callout-danger:hover{background:rgba(192,57,43,.13)} .sevdist-callout-icon{flex-shrink:0} .sevdist-callout-info .sevdist-callout-icon{color:var(--accent)} .sevdist-callout-danger .sevdist-callout-icon{color:var(--crit)} .sevdist-callout-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .sevdist-callout-head{font-size:12.5px;font-weight:600;color:var(--t1)} .sevdist-callout-sub{font-size:10.5px;color:var(--t3)} .sevdist-callout-cta{flex-shrink:0;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap} .sevdist-callout-info .sevdist-callout-cta{color:var(--accent)} .sevdist-callout-danger .sevdist-callout-cta{color:var(--crit)}
     .svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px} .svc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;box-shadow:var(--shadow)} .svc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px} .svc-name{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--t1)} .svc-badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:3px} .svc-badge.critical{background:var(--crit-bg);color:var(--crit)} .svc-badge.high{background:var(--high-bg);color:var(--high)} .svc-badge.medium{background:var(--med-bg);color:var(--med)} .svc-badge.low,.svc-badge.clean{background:var(--low-bg);color:var(--low)} .svc-score-row{display:flex;align-items:baseline;gap:6px;margin-bottom:8px} .svc-score-num{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--t1);line-height:1} .svc-score-lbl{font-size:11px;color:var(--t3)} .svc-bar-track{height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-bottom:9px;border:1px solid var(--border)} .svc-bar-fill{height:100%;border-radius:2px} .svc-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-top:1px solid var(--border)} .svc-row span{color:var(--t3)} .svc-row b{font-family:var(--mono);color:var(--t2);font-weight:600}
     .bench-tabs{display:flex;gap:2px;padding:10px 18px 0;border-bottom:1px solid var(--border);background:var(--surface2)} .btab{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:7px 14px;border-radius:4px 4px 0 0;cursor:pointer;border:1px solid transparent;border-bottom:none;margin-bottom:-1px;background:none} .btab.active{color:var(--accent);background:var(--surface);border-color:var(--border);border-bottom-color:var(--surface)} .bench-pane{display:none} .bench-pane.active{display:block} .bench-body{padding:16px 18px;background:var(--surface)} .bench-prog-lbl{font-family:var(--mono);font-size:10px;color:var(--t3);margin-bottom:6px;display:flex;justify-content:space-between} .bench-prog-track{height:5px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;overflow:hidden;margin-bottom:14px} .bench-prog-fill{height:100%;border-radius:3px} .bench-stats{display:flex;gap:10px;margin-bottom:14px} .bench-stat{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;text-align:center} .bench-stat-num{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--t1)} .bench-stat-lbl{font-size:10px;color:var(--t3);margin-top:2px} .bench-stat.pass .bench-stat-num{color:var(--low)} .bench-stat.fail .bench-stat-num{color:var(--crit)} .bench-stat.score .bench-stat-num{color:var(--accent)}
     .ctrl-list{display:flex;flex-direction:column;gap:6px} .ctrl-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)} .ctrl-id{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--t3);min-width:80px} .ctrl-name{flex:1;font-size:12px;color:var(--t2)} .ctrl-tag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:3px} .ctrl-pass{background:var(--low-bg);color:var(--low)} .ctrl-fail{background:var(--crit-bg);color:var(--crit)} .ctrl-partial{background:var(--med-bg);color:var(--med)}
@@ -47,22 +51,36 @@
     <div class="brand"><div class="brand-row"><div class="brand-dot"></div><div class="brand-name">Multi-Benchmark Security PoC</div></div><div class="brand-tag">AWS Cloud Security</div></div>
     <nav class="nav">
       <div class="nav-section">Dashboard</div>
-      <a class="nav-link active" href="#overview"><span class="nav-ico">◌</span> Overview</a>
-      <a class="nav-link" href="#svc-posture"><span class="nav-ico">◌</span> Service Posture</a>
-      <a class="nav-link" href="#benchmarks"><span class="nav-ico">◌</span> Benchmarks</a>
-      <a class="nav-link" href="#attack-chains"><span class="nav-ico">◌</span> Attack Chains</a>
-      <a class="nav-link" href="#findings"><span class="nav-ico">◌</span> Findings</a>
+      <select class="fsel" id="viewSel" style="width:100%;margin-bottom:8px" onchange="showSection(this.value)" title="Show only one section of the dashboard">
+        <option value="all">All sections</option>
+        <option value="overview">Overview</option>
+        <option value="biz-impact">Business Impact</option>
+        <option value="svc-posture">Service Posture</option>
+        <option value="benchmarks">Benchmarks</option>
+        <option value="attack-chains">Attack Chains</option>
+        <option value="findings">Findings</option>
+      </select>
+      <a class="nav-link active" href="#overview" onclick="showSection('overview')"><span class="nav-ico">◌</span> Overview</a>
+      <a class="nav-link" href="#svc-posture" onclick="showSection('svc-posture')"><span class="nav-ico">◌</span> Service Posture</a>
+      <a class="nav-link" href="#benchmarks" onclick="showSection('benchmarks')"><span class="nav-ico">◌</span> Benchmarks</a>
+      <a class="nav-link" href="#attack-chains" onclick="showSection('attack-chains')"><span class="nav-ico">◌</span> Attack Chains</a>
+      <a class="nav-link" href="#findings" onclick="showSection('findings')"><span class="nav-ico">◌</span> Findings</a>
       <div class="nav-section">Export</div>
       <a class="nav-link" href="/download-summary"><span class="nav-ico">◌</span> Full Report</a>
+      <div class="nav-section">Previous Scans</div>
+      <select class="fsel" id="prevScanSel" style="width:100%;margin-bottom:6px" title="Pick a past scan to download"></select>
+      <a class="btn-ghost" href="#" style="display:block;width:100%;text-align:center;margin-bottom:6px" onclick="downloadPrevScan('json');return false">Download JSON</a>
+      <a class="btn-ghost" href="#" style="display:block;width:100%;text-align:center" onclick="downloadPrevScan('report');return false">Download Report</a>
     </nav>
     <div class="sidebar-foot">
-      <select class="fsel" id="profileSel" style="width:100%;margin-bottom:6px">
+      <select class="fsel" id="profileSel" style="width:100%;margin-bottom:6px" title="Previews the dashboard under this sector's severity weighting, and sets which profile 'Run New Scan' uses next">
         {% for key, p in profiles.items() %}
         <option value="{{ key }}" {{ 'selected' if key == selected_profile }}>{{ p.label }}</option>
         {% endfor %}
       </select>
       <a class="btn-primary" href="/scan" id="scanBtn">Run New Scan</a>
       <a class="btn-ghost" href="/download-summary">Download JSON</a>
+      <button class="btn-danger" id="resetScansBtn" onclick="resetScans()">Reset Scan Count</button>
     </div>
   </aside>
   <main class="main">
@@ -77,39 +95,64 @@
         <div class="chip">Region <b>{{ latest_scan["region"] }}</b></div>
         <div class="chip">Scan <b>#{{ latest_scan["scan_id"] }}</b></div>
         <div class="chip">Profile <b>{{ latest_scan["aws_profile"] }}</b></div>
-        <div class="chip">Business Context <b>{{ profiles[selected_profile].label }}</b></div>
-        <div class="chip">Framework <b>{{ profiles[selected_profile].framework }}</b></div>
+        <div class="chip" id="chipBizContext">Business Context <b>{{ profiles[selected_profile].label }}</b></div>
+        <div class="chip" id="chipFramework">Framework <b>{{ profiles[selected_profile].framework }}</b></div>
         {% endif %}
       </div>
     </div>
-    <div class="sec">
+    <div class="sec" id="sec-score">
       <div class="sec-hd"><span class="sec-title">Score & Severity</span><span class="sec-line"></span></div>
       <div class="kpi-row">
-        <div class="kpi kpi-score"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Posture Score</div><div class="kpi-val">{{ security_score }}</div><div class="kpi-sub"><span class="{{ 'status-good' if security_status=='Good' else 'status-fair' if security_status=='Fair' else 'status-poor' }}">{{ security_status }}</span> / 100</div></div>
-        <div class="kpi kpi-crit"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Critical</div><div class="kpi-val">{{ summary['Critical'] }}</div><div class="kpi-sub">finding{{ 's' if summary['Critical'] != 1 }}</div></div>
-        <div class="kpi kpi-high"><div class="kpi-accent-bar"></div><div class="kpi-lbl">High</div><div class="kpi-val">{{ summary['High'] }}</div><div class="kpi-sub">finding{{ 's' if summary['High'] != 1 }}</div></div>
-        <div class="kpi kpi-med"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Medium</div><div class="kpi-val">{{ summary['Medium'] }}</div><div class="kpi-sub">finding{{ 's' if summary['Medium'] != 1 }}</div></div>
-        <div class="kpi kpi-low"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Low · Total</div><div class="kpi-val">{{ summary['Low'] }}</div><div class="kpi-sub">{{ total_findings }} total</div></div>
+        <div class="kpi kpi-score"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Posture Score</div><div class="kpi-val" id="kpiScore">{{ security_score }}</div><div class="kpi-sub"><span id="kpiStatus" class="{{ 'status-good' if security_status=='Good' else 'status-fair' if security_status=='Fair' else 'status-poor' }}">{{ security_status }}</span> / 100</div></div>
+        <div class="kpi kpi-crit"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Critical</div><div class="kpi-val" id="kpiCrit">{{ summary['Critical'] }}</div><div class="kpi-sub" id="kpiCritSub">finding{{ 's' if summary['Critical'] != 1 }}</div></div>
+        <div class="kpi kpi-high"><div class="kpi-accent-bar"></div><div class="kpi-lbl">High</div><div class="kpi-val" id="kpiHigh">{{ summary['High'] }}</div><div class="kpi-sub" id="kpiHighSub">finding{{ 's' if summary['High'] != 1 }}</div></div>
+        <div class="kpi kpi-med"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Medium</div><div class="kpi-val" id="kpiMed">{{ summary['Medium'] }}</div><div class="kpi-sub" id="kpiMedSub">finding{{ 's' if summary['Medium'] != 1 }}</div></div>
+        <div class="kpi kpi-low"><div class="kpi-accent-bar"></div><div class="kpi-lbl">Low · Total</div><div class="kpi-val" id="kpiLow">{{ summary['Low'] }}</div><div class="kpi-sub" id="kpiLowSub">{{ total_findings }} total</div></div>
       </div>
     </div>
-    <div class="sec two-col">
+    <div class="sec two-col" id="sec-severity">
       <div class="panel">
         <div class="panel-hd"><span class="panel-title">Severity Distribution</span><span class="panel-sub">Scan #{{ latest_scan['scan_id'] if latest_scan }}</span></div>
         <div class="panel-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
           <div style="flex:0 0 160px"><canvas id="donutChart"></canvas></div>
           <div style="flex:1;min-width:100px;display:grid;gap:7px">
             {% for sev, col in [("Critical","var(--crit)"),("High","var(--high)"),("Medium","var(--med)"),("Low","var(--low)")] %}
-            <div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:{{ col }};flex-shrink:0;display:inline-block"></span><span style="font-family:var(--mono);font-size:11px;color:var(--t3);flex:1">{{ sev }}</span><span style="font-family:var(--mono);font-size:14px;font-weight:700;color:{{ col }}">{{ summary[sev] }}</span></div>
+            <div class="sevdist-row" data-sev="{{ sev }}" onclick="toggleSevServices('{{ sev }}')" style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:{{ col }};flex-shrink:0;display:inline-block"></span><span style="font-family:var(--mono);font-size:11px;color:var(--t3);flex:1">{{ sev }}</span><span id="sevdist-pct-{{ sev }}" class="sevdist-pct">{{ ((summary[sev] / total_findings * 100) | round | int) if total_findings else 0 }}%</span><span id="sevdist-{{ sev }}" style="font-family:var(--mono);font-size:14px;font-weight:700;color:{{ col }}">{{ summary[sev] }}</span></div>
             {% endfor %}
+            <div id="sevdistServices" class="sevdist-services"></div>
           </div>
+          <div class="trend-wrap">
+            <div class="trend-lbl">Vs Previous Scan</div>
+            {% if risk_delta %}
+            <div class="trend-score" style="color:{{ 'var(--low)' if risk_delta.score_change > 0 else 'var(--crit)' if risk_delta.score_change < 0 else 'var(--t3)' }}">{{ '+' if risk_delta.score_change > 0 }}{{ risk_delta.score_change }} <span class="trend-score-sub">pts</span></div>
+            {% for sev, col in [("Critical","var(--crit)"),("High","var(--high)"),("Medium","var(--med)"),("Low","var(--low)")] %}
+            <div class="trend-row">
+              <span>{{ sev }}</span>
+              <span style="color:{{ 'var(--crit)' if risk_delta.delta[sev] > 0 else 'var(--low)' if risk_delta.delta[sev] < 0 else 'var(--t3)' }}">{{ '+' if risk_delta.delta[sev] > 0 }}{{ risk_delta.delta[sev] }}</span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="trend-empty">Run another scan to see how your posture is trending.</div>
+            {% endif %}
+          </div>
+          {% if chain_summary.chain_count > 0 %}
+          <a href="#attack-chains" class="sevdist-callout {{ 'sevdist-callout-danger' if chain_summary.danger else 'sevdist-callout-info' }}">
+            <svg class="sevdist-callout-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M6 9.5c0 5 12 1 12 6"/></svg>
+            <span class="sevdist-callout-body">
+              <span class="sevdist-callout-head">{{ chain_summary.finding_count }} finding{{ 's' if chain_summary.finding_count != 1 }} chain into {{ chain_summary.chain_count }} exploitable path{{ 's' if chain_summary.chain_count != 1 }}</span>
+              <span class="sevdist-callout-sub">Individually medium, critical when combined</span>
+            </span>
+            <span class="sevdist-callout-cta">View analysis →</span>
+          </a>
+          {% endif %}
         </div>
       </div>
       <div class="panel">
         <div class="panel-hd"><span class="panel-title">Security Score</span><span class="panel-sub">{{ latest_scan['scan_type'] if latest_scan }}</span></div>
         <div class="panel-body gauge-wrap">
           <canvas id="gaugeChart"></canvas>
-          <div class="gauge-num">{{ security_score }}</div>
-          <div class="gauge-status {{ 'status-good' if security_status=='Good' else 'status-fair' if security_status=='Fair' else 'status-poor' }}">{{ security_status }}</div>
+          <div class="gauge-num" id="gaugeNum">{{ security_score }}</div>
+          <div class="gauge-status {{ 'status-good' if security_status=='Good' else 'status-fair' if security_status=='Fair' else 'status-poor' }}" id="gaugeStatus">{{ security_status }}</div>
           {% if latest_scan %}
           <div class="scan-details">
             <div class="scan-dr"><span>Scope</span><b>{{ latest_scan['service'] }}</b></div>
@@ -118,6 +161,17 @@
             <div class="scan-dr"><span>Status</span><b>{{ latest_scan['status']|title }}</b></div>
           </div>
           {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="sec" id="biz-impact">
+      <div class="sec-hd"><span class="sec-title">Business Impact & Recommendations</span><span class="sec-line"></span></div>
+      <div class="panel">
+        <div class="panel-body" id="bizImpactBody">
+          <div style="text-align:center;padding:30px;font-family:var(--mono);font-size:11px;color:var(--t3)">Loading summary...</div>
+        </div>
+        <div class="modal-ft" style="position:static">
+          <a class="btn-ghost" href="/download-business-report" style="padding:8px 14px">Download Report</a>
         </div>
       </div>
     </div>
@@ -159,11 +213,11 @@
             <thead><tr><th style="width:36px"></th><th>Rule ID</th><th>Title</th><th>Severity</th><th>Status</th><th>CIS Mapping</th><th>Resource</th><th>Action</th></tr></thead>
             <tbody id="ftbody">
             {% for f in findings %}
-              <tr class="frow" data-sev="{{ f['severity'] }}" data-status="{{ f['compliance_status'] }}" data-code="{{ f['finding_code'] }}" data-cis="{{ f['cis_mapping'] if f['cis_mapping'] else '' }}" data-idx="{{ loop.index }}" onclick="toggleRow({{ loop.index }})">
+              <tr class="frow" data-sev="{{ f['severity'] }}" data-status="{{ f['compliance_status'] }}" data-code="{{ f['finding_code'] }}" data-cis="{{ f['cis_mapping'] if f['cis_mapping'] else '' }}" data-idx="{{ loop.index }}" data-finding-id="{{ f['finding_id'] }}" onclick="toggleRow({{ loop.index }})">
                 <td style="width:36px" onclick="event.stopPropagation();toggleRow({{ loop.index }})"><button class="exp-btn" id="exp-{{ loop.index }}">›</button></td>
                 <td><span class="code-pill">{{ f['finding_code'] }}</span></td>
                 <td><div class="ftitle">{{ f['title'] }}</div></td>
-                <td><span class="badge {{ 'bc' if f['severity']=='Critical' else 'bh' if f['severity']=='High' else 'bm' if f['severity']=='Medium' else 'bl' }}">{{ f['severity'] }}</span></td>
+                <td><span class="badge {{ 'bc' if f['severity']=='Critical' else 'bh' if f['severity']=='High' else 'bm' if f['severity']=='Medium' else 'bl' }}" id="sevbadge-{{ loop.index }}">{{ f['severity'] }}</span></td>
                 <td><span class="badge {{ 'bf' if f['compliance_status']=='FAIL' else 'bp' if f['compliance_status']=='PASS' else 'br' }}" id="sbadge-{{ loop.index }}">{{ f['compliance_status'] }}</span></td>
                 <td>{% if f['cis_mapping'] %}<div class="cis-wrap">{% for c in f['cis_mapping'].split(', ') %}<span class="cis-dot">{{ c }}</span>{% endfor %}</div>{% else %}<span style="color:var(--t3);font-family:var(--mono);font-size:10px">—</span>{% endif %}</td>
                 <td style="font-family:var(--mono);font-size:10px;color:var(--t3)">{{ f['resource'] }}</td>
@@ -177,10 +231,10 @@
                   <div class="drow-val">{{ f['remediation'] or 'No guidance available.' }}</div>
                   <div class="drow-lbl" style="margin-top:10px">Evidence</div>
                   <div class="drow-val" style="font-family:var(--mono);font-size:11px;word-break:break-all">{{ f['evidence'] or '—' }}</div>
-                  {% if f['business_mapping'] %}
-                  <div class="drow-lbl" style="margin-top:10px">{{ f['business_framework'] }} Mapping</div>
-                  <div class="drow-val">{{ f['business_mapping'] }}</div>
-                  {% endif %}
+                  <div id="bizwrap-{{ loop.index }}" style="{{ '' if f['business_mapping'] else 'display:none' }}">
+                    <div class="drow-lbl" style="margin-top:10px" id="bizlbl-{{ loop.index }}">{{ f['business_framework'] }} Mapping</div>
+                    <div class="drow-val" id="bizval-{{ loop.index }}">{{ f['business_mapping'] }}</div>
+                  </div>
                   {% if f['db_environment'] %}
                   <div class="drow-lbl" style="margin-top:10px">Database Context</div>
                   <div class="drow-val">{{ f['db_engine'] }} &middot; {{ f['db_environment']|title }} environment</div>
@@ -210,25 +264,52 @@
 <script>
 const SCORE = {{ security_score }};
 const SUMMARY = {{ summary|tojson }};
+const PROFILE_META = {{ profile_meta|tojson }};
+const SELECTED_PROFILE = {{ selected_profile|tojson }};
+const ATTACK_CHAINS = {{ attack_chains|tojson }};
+let donutChart, gaugeChart;
+const SEV_ORDER = ['Critical','High','Medium','Low'];
+function codeToService(code){
+  code = (code || '').toUpperCase();
+  if (code.startsWith('EC2')) return 'EC2';
+  if (code.startsWith('S3')) return 'S3';
+  if (code.startsWith('LOG')) return 'CloudTrail';
+  if (code.startsWith('IAM')) return 'IAM';
+  if (code.startsWith('RDS')) return 'RDS';
+  if (code.startsWith('EBS')) return 'EBS';
+  if (code.startsWith('SG')) return 'SG';
+  if (code.startsWith('VPC')) return 'VPC';
+  if (code.startsWith('KMS')) return 'KMS';
+  return 'Other';
+}
 function drawCharts(){
-  const c1=document.getElementById('donutChart'); if(c1){ new Chart(c1,{type:'doughnut',data:{labels:['Critical','High','Medium','Low'],datasets:[{data:[SUMMARY.Critical,SUMMARY.High,SUMMARY.Medium,SUMMARY.Low],backgroundColor:['#c0392b','#c0620d','#9a7d0a','#1e8a5e'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:true,cutout:'68%',plugins:{legend:{display:false},tooltip:{enabled:true}}}}); }
-  const c2=document.getElementById('gaugeChart'); if(c2){ new Chart(c2,{type:'doughnut',data:{datasets:[{data:[SCORE,100-SCORE],backgroundColor:[SCORE>=80?'#1e8a5e':SCORE>=50?'#9a7d0a':'#c0392b','#f1f3f5'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:true,cutout:'82%',circumference:200,rotation:-100,plugins:{legend:{display:false},tooltip:{enabled:false}}}}); }
+  const c1=document.getElementById('donutChart'); if(c1){ donutChart = new Chart(c1,{type:'doughnut',data:{labels:SEV_ORDER,datasets:[{data:[SUMMARY.Critical,SUMMARY.High,SUMMARY.Medium,SUMMARY.Low],backgroundColor:['#c0392b','#c0620d','#9a7d0a','#1e8a5e'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:true,cutout:'68%',onClick:(evt,els)=>{ if(els.length) toggleSevServices(SEV_ORDER[els[0].index]); },plugins:{legend:{display:false},tooltip:{enabled:true}}}}); }
+  const c2=document.getElementById('gaugeChart'); if(c2){ gaugeChart = new Chart(c2,{type:'doughnut',data:{datasets:[{data:[SCORE,100-SCORE],backgroundColor:[SCORE>=80?'#1e8a5e':SCORE>=50?'#9a7d0a':'#c0392b','#f1f3f5'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:true,cutout:'82%',circumference:200,rotation:-100,plugins:{legend:{display:false},tooltip:{enabled:false}}}}); }
+}
+let activeSevService = null;
+function toggleSevServices(sev){
+  activeSevService = (activeSevService === sev) ? null : sev;
+  renderSevServices();
+}
+function renderSevServices(){
+  const el = document.getElementById('sevdistServices');
+  if (!el) return;
+  document.querySelectorAll('.sevdist-row').forEach(r => r.classList.toggle('active', r.dataset.sev === activeSevService));
+  if (!activeSevService){ el.classList.remove('open'); el.innerHTML=''; return; }
+  const services = Array.from(new Set(
+    Array.from(document.querySelectorAll('.frow'))
+      .filter(r => r.dataset.status !== 'REMEDIATED' && r.dataset.sev === activeSevService)
+      .map(r => codeToService(r.dataset.code))
+  )).sort();
+  el.classList.add('open');
+  el.innerHTML = `<span class="sevdist-services-lbl">${activeSevService} in:</span>` +
+    (services.length ? services.map(s => `<span class="code-pill">${s}</span>`).join('') : `<span class="code-pill">None</span>`);
 }
 function renderServicePosture(){
-  const rows = Array.from(document.querySelectorAll('.frow'));
+  const rows = Array.from(document.querySelectorAll('.frow')).filter(r => r.dataset.status !== 'REMEDIATED');
   const svcMap = {};
   rows.forEach(r => {
-    const code = (r.dataset.code || '').toUpperCase();
-    let svc = 'Other';
-    if (code.startsWith('EC2')) svc = 'EC2';
-    else if (code.startsWith('S3')) svc = 'S3';
-    else if (code.startsWith('LOG')) svc = 'CloudTrail';
-    else if (code.startsWith('IAM')) svc = 'IAM';
-    else if (code.startsWith('RDS')) svc = 'RDS';
-    else if (code.startsWith('EBS')) svc = 'EBS';
-    else if (code.startsWith('SG')) svc = 'SG';
-    else if (code.startsWith('VPC')) svc = 'VPC';
-    else if (code.startsWith('KMS')) svc = 'KMS';
+    const svc = codeToService(r.dataset.code);
     if (!svcMap[svc]) svcMap[svc] = {Critical:0,High:0,Medium:0,Low:0};
     const sev = r.dataset.sev;
     if (svcMap[svc][sev] !== undefined) svcMap[svc][sev] += 1;
@@ -343,86 +424,10 @@ function renderBench(){
 }
 function renderChains(){
   const act = new Set(Array.from(document.querySelectorAll('.frow')).map(r => r.dataset.code));
-  const CHAINS = [
-    {
-      name: 'Internet Breach to Data Exfiltration',
-      codes: ['EC2-001','S3-001','LOG-001'],
-      sev: 'critical',
-      mitre: 'Initial Access → Lateral Movement → Exfiltration',
-      desc: 'An attacker brute-forces an exposed SSH/RDP port to gain a shell on an EC2 instance, then pivots to an S3 bucket missing public-access controls to exfiltrate data. No CloudTrail trail means the entire attack goes unrecorded.'
-    },
-    {
-      name: 'SSH Breach with No Network Visibility',
-      codes: ['SG-001','VPC-001','LOG-001'],
-      sev: 'critical',
-      mitre: 'Initial Access → Defense Evasion',
-      desc: 'SSH is open to the internet, VPC Flow Logs are disabled, and CloudTrail is absent. An attacker gains access through port 22, moves laterally inside the VPC, and leaves no network or API trail for investigators to follow.'
-    },
-    {
-      name: 'Root Account Total Takeover',
-      codes: ['IAM-004','IAM-001'],
-      sev: 'critical',
-      mitre: 'Privilege Escalation → Impact',
-      desc: 'The root account lacks MFA or has active access keys, and wildcard IAM policies exist. A single credential leak hands an attacker unlimited, policy-unrestricted control of the entire AWS account — billing, data, and all resources.'
-    },
-    {
-      name: 'Public Database Direct Breach',
-      codes: ['RDS-001','RDS-002'],
-      sev: 'critical',
-      mitre: 'Initial Access → Collection',
-      desc: 'A database is publicly accessible and its storage is unencrypted. An attacker can connect directly from the internet, brute-force credentials, and read every record. No intermediate host compromise is required.'
-    },
-    {
-      name: 'Open Network + Blind Monitoring',
-      codes: ['SG-003','VPC-001'],
-      sev: 'critical',
-      mitre: 'Initial Access → Defense Evasion',
-      desc: 'A security group allows all inbound traffic from the internet while VPC Flow Logs are off. Any service on any port is reachable, and all resulting connections — including attacker traffic — are invisible to defenders.'
-    },
-    {
-      name: 'Public Snapshot Data Leak',
-      codes: ['EBS-004','EBS-001'],
-      sev: 'critical',
-      mitre: 'Collection → Exfiltration',
-      desc: 'A snapshot is publicly accessible and the underlying volume is unencrypted. Any AWS account in the world can copy the snapshot right now and read the raw data — no credentials from the victim account required.'
-    },
-    {
-      name: 'Stale Credential Silent Compromise',
-      codes: ['IAM-003','IAM-001'],
-      sev: 'high',
-      mitre: 'Persistence → Privilege Escalation',
-      desc: 'Active access keys have not been rotated in over 90 days, and they are attached to identities with wildcard policies. A key leaked through a code repository or log gives an attacker broad permissions and may go unnoticed for months.'
-    },
-    {
-      name: 'Persistent Exposure Without Logging',
-      codes: ['EC2-002','LOG-001'],
-      sev: 'high',
-      mitre: 'Persistence → Defense Evasion',
-      desc: 'An EC2 instance has an unnecessary public IP and no CloudTrail trail is recording API calls. An attacker with access can operate persistently — creating resources, modifying policies — with no audit record to trigger alerts.'
-    },
-    {
-      name: 'Identity Misuse via Weak Controls',
-      codes: ['IAM-001','IAM-002'],
-      sev: 'high',
-      mitre: 'Privilege Escalation → Defense Evasion',
-      desc: 'Wildcard IAM policies grant near-unlimited permissions, and the affected users have no MFA. A phished or guessed password becomes an immediate account-wide privilege escalation with no second factor to block it.'
-    },
-    {
-      name: 'KMS Key Loss Causing Data Lockout',
-      codes: ['KMS-003','EBS-001'],
-      sev: 'high',
-      mitre: 'Impact → Data Destruction',
-      desc: 'A KMS key is pending deletion while unencrypted EBS volumes exist in the account. Deletion permanently destroys the key and any data it protects, while unencrypted volumes are already exposed — leaving the environment in an irrecoverable state.'
-    },
-    {
-      name: 'Auto-Exposed Subnet with Open Security Group',
-      codes: ['VPC-003','SG-001'],
-      sev: 'medium',
-      mitre: 'Initial Access',
-      desc: 'A subnet automatically assigns public IPs to every new instance, and a security group allows SSH from the internet. Any workload deployed in this subnet is immediately reachable over SSH from anywhere, with no deliberate action from the operator.'
-    }
-  ];
-  const triggered = CHAINS.filter(c => c.codes.every(x => act.has(x)));
+  // ATTACK_CHAINS is injected server-side from app.py's ATTACK_CHAINS constant —
+  // the same source app.py's compute_chain_summary() uses for the severity-card
+  // callout, so the two can never disagree.
+  const triggered = ATTACK_CHAINS.filter(c => c.codes.every(x => act.has(x)));
   document.getElementById('chain-lbl').textContent = `${triggered.length} chain${triggered.length!==1?'s':''}`;
   const el = document.getElementById('chainsEl');
   el.innerHTML = triggered.length ? triggered.map(c => `<div class="chain ${c.sev}"><div class="chain-top"><div class="chain-name">${c.name}</div><div class="chain-mitre">${c.mitre}</div></div><div class="chain-desc">${c.desc}</div><div class="chain-codes">${c.codes.map(x => `<span class="rule-pill">${x}</span>`).join('')}</div></div>`).join('') : `<div class="no-chains">No multi-step attack chains detected.</div>`;
@@ -441,6 +446,104 @@ function applyFilters(){
   document.getElementById('vis-count').textContent = vis;
 }
 function resetFilters(){['fSev','fStatus','fCode','fCis'].forEach(id => document.getElementById(id).value='all'); applyFilters();}
+const SEV_BADGE_CLASS = {Critical:'bc',High:'bh',Medium:'bm',Low:'bl'};
+// Mirrors calculate_score() in app.py — keep the deduction weights in sync.
+function calcScore(summary){
+  const deduction = summary.Critical*30 + summary.High*20 + summary.Medium*10 + summary.Low*5;
+  const score = Math.max(0, 100 - deduction);
+  const status = score>=80?'Good':score>=50?'Fair':'Poor';
+  return {score, status};
+}
+// Applies a {Critical,High,Medium,Low} summary to every score/KPI/chart widget on the page.
+// Shared by profile-preview switching and by markFixed(), so "outstanding risk" always
+// reflects the same live-computed numbers regardless of which triggered the update.
+function applyMetricsToDOM(summary){
+  const total = summary.Critical + summary.High + summary.Medium + summary.Low;
+  const {score, status} = calcScore(summary);
+  const statusClass = status==='Good'?'status-good':status==='Fair'?'status-fair':'status-poor';
+
+  document.getElementById('kpiScore').textContent = score;
+  const statusEl = document.getElementById('kpiStatus'); statusEl.textContent = status; statusEl.className = statusClass;
+  document.getElementById('kpiCrit').textContent = summary.Critical;
+  document.getElementById('kpiCritSub').textContent = 'finding' + (summary.Critical!==1?'s':'');
+  document.getElementById('kpiHigh').textContent = summary.High;
+  document.getElementById('kpiHighSub').textContent = 'finding' + (summary.High!==1?'s':'');
+  document.getElementById('kpiMed').textContent = summary.Medium;
+  document.getElementById('kpiMedSub').textContent = 'finding' + (summary.Medium!==1?'s':'');
+  document.getElementById('kpiLow').textContent = summary.Low;
+  document.getElementById('kpiLowSub').textContent = total + ' total';
+  document.getElementById('gaugeNum').textContent = score;
+  const gaugeStatusEl = document.getElementById('gaugeStatus'); gaugeStatusEl.textContent = status; gaugeStatusEl.className = 'gauge-status ' + statusClass;
+  ['Critical','High','Medium','Low'].forEach(s => {
+    const el = document.getElementById('sevdist-'+s); if (el) el.textContent = summary[s];
+    const pctEl = document.getElementById('sevdist-pct-'+s); if (pctEl) pctEl.textContent = (total ? Math.round(summary[s]/total*100) : 0) + '%';
+  });
+
+  if (donutChart){ donutChart.data.datasets[0].data = [summary.Critical, summary.High, summary.Medium, summary.Low]; donutChart.update(); }
+  if (gaugeChart){ gaugeChart.data.datasets[0].data = [score, 100-score]; gaugeChart.data.datasets[0].backgroundColor = [score>=80?'#1e8a5e':score>=50?'#9a7d0a':'#c0392b','#f1f3f5']; gaugeChart.update(); }
+  renderSevServices();
+  return {score, status, total};
+}
+// Recomputes the summary from the findings table's current dataset.sev/status attributes
+// (i.e. whatever is on screen right now) and re-applies it to every widget.
+function refreshMetricsFromTable(){
+  const summary = {Critical:0,High:0,Medium:0,Low:0};
+  document.querySelectorAll('.frow').forEach(row => {
+    if (row.dataset.status === 'REMEDIATED') return;
+    if (row.dataset.sev in summary) summary[row.dataset.sev]++;
+  });
+  applyMetricsToDOM(summary);
+  renderServicePosture();
+}
+async function applyProfilePreview(){
+  const sel = document.getElementById('profileSel');
+  const profileKey = sel.value;
+  let data;
+  try{
+    const res = await fetch('/api/findings?profile=' + encodeURIComponent(profileKey));
+    data = await res.json();
+  } catch(e){
+    alert('Could not load profile preview: ' + e);
+    sel.value = SELECTED_PROFILE;
+    return;
+  }
+  const byId = {};
+  data.forEach(f => byId[String(f.finding_id)] = f);
+
+  const summary = {Critical:0,High:0,Medium:0,Low:0};
+  document.querySelectorAll('.frow').forEach(row => {
+    const f = byId[row.dataset.findingId];
+    if (!f || !(f.severity in summary)) return;
+    row.dataset.sev = f.severity;
+
+    const idx = row.dataset.idx;
+    const badge = document.getElementById('sevbadge-'+idx);
+    if (badge){ badge.textContent = f.severity; badge.className = 'badge ' + (SEV_BADGE_CLASS[f.severity] || 'bl'); }
+
+    const bizWrap = document.getElementById('bizwrap-'+idx);
+    if (bizWrap){
+      bizWrap.style.display = f.business_mapping ? '' : 'none';
+      if (f.business_mapping){
+        document.getElementById('bizlbl-'+idx).textContent = f.business_framework + ' Mapping';
+        document.getElementById('bizval-'+idx).textContent = f.business_mapping;
+      }
+    }
+
+    if (row.dataset.status === 'REMEDIATED') return;
+    summary[f.severity]++;
+  });
+
+  applyMetricsToDOM(summary);
+
+  const isPreview = profileKey !== SELECTED_PROFILE;
+  const meta = PROFILE_META[profileKey];
+  document.getElementById('chipBizContext').innerHTML = 'Business Context <b>' + meta.label + (isPreview ? ' (preview)' : '') + '</b>';
+  document.getElementById('chipFramework').innerHTML = 'Framework <b>' + meta.framework + '</b>';
+
+  renderServicePosture();
+  applyFilters();
+  loadBusinessImpact(profileKey);
+}
 function toggleRow(idx){ const dr=document.getElementById('detail-'+idx), btn=document.getElementById('exp-'+idx); if(!dr) return; const open = dr.classList.contains('open'); dr.classList.toggle('open', !open); dr.style.display = open ? 'none' : 'table-row'; btn.classList.toggle('open', !open); }
 async function markFixed(idx, findingId, btn){
   const original = btn.textContent;
@@ -467,6 +570,8 @@ async function markFixed(idx, findingId, btn){
     await fetch('/api/remediate/'+findingId, {method:'POST'});
     const b=document.getElementById('sbadge-'+idx); if(b){ b.textContent='REMEDIATED'; b.className='badge br'; }
     btn.textContent='Done'; btn.classList.add('done'); btn.closest('tr').dataset.status='REMEDIATED';
+    refreshMetricsFromTable();
+    loadBusinessImpact(document.getElementById('profileSel').value);
     toast('Finding verified and marked as remediated.');
   } catch(e){
     alert('Verification request failed: ' + e);
@@ -474,10 +579,70 @@ async function markFixed(idx, findingId, btn){
   }
 }
 function toast(msg){const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000);}
+async function resetScans(){
+  const confirmed = confirm(
+    'Reset scan count?\n\n' +
+    'This will permanently delete ALL scan history from the database: every past scan, ' +
+    'along with all findings, resources, and CIS mappings tied to those scans. ' +
+    'The scan counter will restart at #1 on your next scan.\n\n' +
+    'This cannot be undone. Continue?'
+  );
+  if (!confirmed) return;
+  const btn = document.getElementById('resetScansBtn');
+  const original = btn.textContent;
+  btn.textContent = 'Resetting...'; btn.disabled = true;
+  try{
+    const res = await fetch('/api/reset-scans', {method:'POST'});
+    const data = await res.json();
+    if (!res.ok || data.error){
+      alert('Reset failed: ' + (data.error || 'unknown error'));
+      btn.textContent = original; btn.disabled = false;
+      return;
+    }
+    toast('Scan history cleared. Reloading...');
+    setTimeout(() => window.location.href = '/', 800);
+  } catch(e){
+    alert('Reset request failed: ' + e);
+    btn.textContent = original; btn.disabled = false;
+  }
+}
 function updateScanLink(){ const sel=document.getElementById('profileSel'); document.getElementById('scanBtn').href = '/scan?profile=' + encodeURIComponent(sel.value); }
-document.getElementById('profileSel').addEventListener('change', updateScanLink);
+document.getElementById('profileSel').addEventListener('change', () => { updateScanLink(); applyProfilePreview(); });
 function switchBench(key){ document.querySelectorAll('.btab').forEach((b,i)=>b.classList.toggle('active', ['cis','nist','waf'][i]===key)); document.querySelectorAll('.bench-pane').forEach(p => p.classList.toggle('active', p.id==='pane-'+key)); }
 function closeSummaryModal(){ document.getElementById('summaryModal').classList.remove('on'); }
+function renderBusinessImpact(container, s){
+  const sevColor = {Critical:'var(--crit)',High:'var(--high)',Medium:'var(--med)',Low:'var(--low)'};
+  const previewTag = s.is_preview ? ' <span style="color:var(--accent)">(preview)</span>' : '';
+  container.innerHTML = `
+    <div class="modal-sec">
+      <div class="modal-kpis">
+        <div class="modal-kpi"><b>${s.score}</b><span>Score</span></div>
+        <div class="modal-kpi"><b style="color:${sevColor.Critical}">${s.summary.Critical}</b><span>Critical</span></div>
+        <div class="modal-kpi"><b style="color:${sevColor.High}">${s.summary.High}</b><span>High</span></div>
+        <div class="modal-kpi"><b style="color:${sevColor.Medium}">${s.summary.Medium}</b><span>Medium</span></div>
+        <div class="modal-kpi"><b style="color:${sevColor.Low}">${s.summary.Low}</b><span>Low</span></div>
+      </div>
+      <div class="modal-sec-txt" style="margin-top:4px">Business Context: <b>${s.business_profile_label}</b>${previewTag} (${s.framework})</div>
+    </div>
+    <div class="modal-sec"><div class="modal-sec-lbl">Overview</div><div class="modal-sec-txt">${s.posture_line}</div></div>
+    <div class="modal-sec"><div class="modal-sec-lbl">Business Impact</div><ul class="modal-list">${s.impact_lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>
+    ${s.top_findings.length ? `<div class="modal-sec"><div class="modal-sec-lbl">Top Findings Requiring Attention</div><ul class="modal-list">${s.top_findings.map(f=>`<li><b>[${f.severity}]</b> ${f.finding_code} — ${f.title} (${f.resource})</li>`).join('')}</ul></div>` : ''}
+    <div class="modal-sec"><div class="modal-sec-lbl">Recommended Actions</div><ul class="modal-list">${s.recommended_actions.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+    <div class="modal-sec"><div class="modal-sec-lbl">Why This Matters To The Business</div><div class="modal-sec-txt">${s.benefit_statement}</div></div>
+  `;
+}
+async function loadBusinessImpact(profileKey){
+  const container = document.getElementById('bizImpactBody');
+  try{
+    const url = '/api/business-summary' + (profileKey ? '?profile=' + encodeURIComponent(profileKey) : '');
+    const res = await fetch(url);
+    const s = await res.json();
+    if (!res.ok || s.error){ container.innerHTML = `<div class="modal-sec-txt" style="padding:24px;text-align:center">No business impact summary available yet — run a scan first.</div>`; return; }
+    renderBusinessImpact(container, s);
+  } catch(e){
+    container.innerHTML = `<div class="modal-sec-txt" style="padding:24px;text-align:center">Failed to load business impact summary: ${e}</div>`;
+  }
+}
 async function showSummaryModalIfJustScanned(){
   const params = new URLSearchParams(window.location.search);
   if (params.get('scanned') !== '1') return;
@@ -487,25 +652,8 @@ async function showSummaryModalIfJustScanned(){
   try{
     const res = await fetch('/api/business-summary');
     const s = await res.json();
-    if (!res.ok || s.error){ body.innerHTML = `<div class="modal-sec-txt">Could not load summary: ${s.error || 'unknown error'}</div>`; return; }
-    const sevColor = {Critical:'var(--crit)',High:'var(--high)',Medium:'var(--med)',Low:'var(--low)'};
-    body.innerHTML = `
-      <div class="modal-sec">
-        <div class="modal-kpis">
-          <div class="modal-kpi"><b>${s.score}</b><span>Score</span></div>
-          <div class="modal-kpi"><b style="color:${sevColor.Critical}">${s.summary.Critical}</b><span>Critical</span></div>
-          <div class="modal-kpi"><b style="color:${sevColor.High}">${s.summary.High}</b><span>High</span></div>
-          <div class="modal-kpi"><b style="color:${sevColor.Medium}">${s.summary.Medium}</b><span>Medium</span></div>
-          <div class="modal-kpi"><b style="color:${sevColor.Low}">${s.summary.Low}</b><span>Low</span></div>
-        </div>
-        <div class="modal-sec-txt" style="margin-top:4px">Business Context: <b>${s.business_profile_label}</b> (${s.framework})</div>
-      </div>
-      <div class="modal-sec"><div class="modal-sec-lbl">Overview</div><div class="modal-sec-txt">${s.posture_line}</div></div>
-      <div class="modal-sec"><div class="modal-sec-lbl">Business Impact</div><ul class="modal-list">${s.impact_lines.map(l=>`<li>${l}</li>`).join('')}</ul></div>
-      ${s.top_findings.length ? `<div class="modal-sec"><div class="modal-sec-lbl">Top Findings Requiring Attention</div><ul class="modal-list">${s.top_findings.map(f=>`<li><b>[${f.severity}]</b> ${f.finding_code} — ${f.title} (${f.resource})</li>`).join('')}</ul></div>` : ''}
-      <div class="modal-sec"><div class="modal-sec-lbl">Recommended Actions</div><ul class="modal-list">${s.recommended_actions.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-      <div class="modal-sec"><div class="modal-sec-lbl">Why This Matters To The Business</div><div class="modal-sec-txt">${s.benefit_statement}</div></div>
-    `;
+    if (!res.ok || s.error){ body.innerHTML = `<div class="modal-sec-txt">Could not load summary: ${s.error || 'unknown error'}</div>`; }
+    else { renderBusinessImpact(body, s); }
   } catch(e){
     body.innerHTML = `<div class="modal-sec-txt">Failed to load summary: ${e}</div>`;
   }
@@ -513,7 +661,56 @@ async function showSummaryModalIfJustScanned(){
   url.searchParams.delete('scanned');
   window.history.replaceState({}, '', url);
 }
-window.addEventListener('DOMContentLoaded', () => { drawCharts(); renderServicePosture(); renderBench(); renderChains(); applyFilters(); updateScanLink(); showSummaryModalIfJustScanned(); });
+// --- Section view filter (sidebar dropdown) ---
+const VIEW_SECTIONS = {
+  all: null,
+  overview: ['sec-score','sec-severity'],
+  'biz-impact': ['biz-impact'],
+  'svc-posture': ['svc-posture'],
+  benchmarks: ['benchmarks'],
+  'attack-chains': ['attack-chains'],
+  findings: ['findings'],
+};
+const ALL_SECTION_IDS = ['sec-score','sec-severity','biz-impact','svc-posture','benchmarks','attack-chains','findings'];
+function showSection(view){
+  const show = VIEW_SECTIONS[view] || null;
+  ALL_SECTION_IDS.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.style.display = (show === null || show.includes(id)) ? '' : 'none';
+  });
+  const sel = document.getElementById('viewSel');
+  if(sel && sel.value !== view) sel.value = view;
+  document.querySelectorAll('.nav-link').forEach(a=>a.classList.remove('active'));
+  const hrefMap = {overview:'#overview','svc-posture':'#svc-posture',benchmarks:'#benchmarks','attack-chains':'#attack-chains',findings:'#findings'};
+  const href = hrefMap[view];
+  if(href){ const link = document.querySelector('.nav-link[href="'+href+'"]'); if(link) link.classList.add('active'); }
+}
+
+// --- Previous scan downloads ---
+function loadPrevScans(){
+  fetch('/api/history').then(r=>r.json()).then(rows=>{
+    const sel = document.getElementById('prevScanSel');
+    if(!sel) return;
+    sel.innerHTML = '';
+    if(!rows || !rows.length){ const o=document.createElement('option'); o.value=''; o.textContent='No scans yet'; sel.appendChild(o); return; }
+    rows.slice().reverse().forEach(row=>{
+      const opt = document.createElement('option');
+      opt.value = row.scan_id;
+      const when = row.started_at ? String(row.started_at).slice(0,16).replace('T',' ') : '';
+      opt.textContent = 'Scan #' + row.scan_id + (when ? ' — ' + when : '');
+      sel.appendChild(opt);
+    });
+  }).catch(()=>{});
+}
+function downloadPrevScan(kind){
+  const sel = document.getElementById('prevScanSel');
+  if(!sel || !sel.value){ alert('No scan selected to download.'); return; }
+  const base = (kind === 'json') ? '/download-scan-json/' : '/download-scan-report/';
+  window.location = base + sel.value;
+}
+
+window.addEventListener('DOMContentLoaded', () => { drawCharts(); renderServicePosture(); renderBench(); renderChains(); applyFilters(); updateScanLink(); loadBusinessImpact(); showSummaryModalIfJustScanned(); loadPrevScans(); });
 </script>
 </body>
 </html>
