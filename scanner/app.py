@@ -1,5 +1,5 @@
 from flask import Flask, render_template, send_file, redirect, url_for, jsonify, request, Response
-import sqlite3
+import db  # MySQL connection wrapper (see db.py)
 import subprocess
 import os
 import json
@@ -29,13 +29,117 @@ SERVICE_CHECKS = {
     "LOG": scanner_cli.check_cloudtrail,
 }
 
-DB_PATH = "capstone.db"
+# Single source of truth for multi-step attack chains: which ordered sets of
+# finding codes, if all present on a scan, describe a real attack path. The
+# dashboard template renders this list (injected as JSON) instead of keeping
+# its own copy, so the Attack Path Analysis section and the severity-card
+# callout can never drift apart.
+ATTACK_CHAINS = [
+    {
+        "name": "Internet Breach to Data Exfiltration",
+        "codes": ["EC2-001", "S3-001", "LOG-001"],
+        "sev": "critical",
+        "mitre": "Initial Access → Lateral Movement → Exfiltration",
+        "desc": "An attacker brute-forces an exposed SSH/RDP port to gain a shell on an EC2 instance, then pivots to an S3 bucket missing public-access controls to exfiltrate data. No CloudTrail trail means the entire attack goes unrecorded.",
+    },
+    {
+        "name": "SSH Breach with No Network Visibility",
+        "codes": ["SG-001", "VPC-001", "LOG-001"],
+        "sev": "critical",
+        "mitre": "Initial Access → Defense Evasion",
+        "desc": "SSH is open to the internet, VPC Flow Logs are disabled, and CloudTrail is absent. An attacker gains access through port 22, moves laterally inside the VPC, and leaves no network or API trail for investigators to follow.",
+    },
+    {
+        "name": "Root Account Total Takeover",
+        "codes": ["IAM-004", "IAM-001"],
+        "sev": "critical",
+        "mitre": "Privilege Escalation → Impact",
+        "desc": "The root account lacks MFA or has active access keys, and wildcard IAM policies exist. A single credential leak hands an attacker unlimited, policy-unrestricted control of the entire AWS account — billing, data, and all resources.",
+    },
+    {
+        "name": "Public Database Direct Breach",
+        "codes": ["RDS-001", "RDS-002"],
+        "sev": "critical",
+        "mitre": "Initial Access → Collection",
+        "desc": "A database is publicly accessible and its storage is unencrypted. An attacker can connect directly from the internet, brute-force credentials, and read every record. No intermediate host compromise is required.",
+    },
+    {
+        "name": "Open Network + Blind Monitoring",
+        "codes": ["SG-003", "VPC-001"],
+        "sev": "critical",
+        "mitre": "Initial Access → Defense Evasion",
+        "desc": "A security group allows all inbound traffic from the internet while VPC Flow Logs are off. Any service on any port is reachable, and all resulting connections — including attacker traffic — are invisible to defenders.",
+    },
+    {
+        "name": "Public Snapshot Data Leak",
+        "codes": ["EBS-004", "EBS-001"],
+        "sev": "critical",
+        "mitre": "Collection → Exfiltration",
+        "desc": "A snapshot is publicly accessible and the underlying volume is unencrypted. Any AWS account in the world can copy the snapshot right now and read the raw data — no credentials from the victim account required.",
+    },
+    {
+        "name": "Stale Credential Silent Compromise",
+        "codes": ["IAM-003", "IAM-001"],
+        "sev": "high",
+        "mitre": "Persistence → Privilege Escalation",
+        "desc": "Active access keys have not been rotated in over 90 days, and they are attached to identities with wildcard policies. A key leaked through a code repository or log gives an attacker broad permissions and may go unnoticed for months.",
+    },
+    {
+        "name": "Persistent Exposure Without Logging",
+        "codes": ["EC2-002", "LOG-001"],
+        "sev": "high",
+        "mitre": "Persistence → Defense Evasion",
+        "desc": "An EC2 instance has an unnecessary public IP and no CloudTrail trail is recording API calls. An attacker with access can operate persistently — creating resources, modifying policies — with no audit record to trigger alerts.",
+    },
+    {
+        "name": "Identity Misuse via Weak Controls",
+        "codes": ["IAM-001", "IAM-002"],
+        "sev": "high",
+        "mitre": "Privilege Escalation → Defense Evasion",
+        "desc": "Wildcard IAM policies grant near-unlimited permissions, and the affected users have no MFA. A phished or guessed password becomes an immediate account-wide privilege escalation with no second factor to block it.",
+    },
+    {
+        "name": "KMS Key Loss Causing Data Lockout",
+        "codes": ["KMS-003", "EBS-001"],
+        "sev": "high",
+        "mitre": "Impact → Data Destruction",
+        "desc": "A KMS key is pending deletion while unencrypted EBS volumes exist in the account. Deletion permanently destroys the key and any data it protects, while unencrypted volumes are already exposed — leaving the environment in an irrecoverable state.",
+    },
+    {
+        "name": "Auto-Exposed Subnet with Open Security Group",
+        "codes": ["VPC-003", "SG-001"],
+        "sev": "medium",
+        "mitre": "Initial Access",
+        "desc": "A subnet automatically assigns public IPs to every new instance, and a security group allows SSH from the internet. Any workload deployed in this subnet is immediately reachable over SSH from anywhere, with no deliberate action from the operator.",
+    },
+]
+
+def compute_chain_summary(findings):
+    """Which attack chains are actually triggered by this scan's findings.
+
+    Mirrors the old renderChains() JS logic exactly: a chain is "triggered"
+    when every code in its ordered `codes` list is present among the scan's
+    finding_codes, regardless of compliance_status (remediated findings still
+    count — matching the dashboard's existing chain-list behavior so this
+    summary never disagrees with the section it links to).
+    """
+    active_codes = {f["finding_code"] for f in findings}
+    triggered = [c for c in ATTACK_CHAINS if all(code in active_codes for code in c["codes"])]
+    critical_codes = {f["finding_code"] for f in findings if f["severity"] == "Critical"}
+    return {
+        "finding_count": len({code for c in triggered for code in c["codes"]}),
+        "chain_count": len(triggered),
+        "danger": any(c["codes"][-1] in critical_codes for c in triggered),
+    }
+
 JSON_PATH = "findings.json"
 
+# Label/framework only (no severity_overrides/framework_mapping payload) for
+# the dashboard's client-side profile-preview control.
+PROFILE_META = {k: {"label": v["label"], "framework": v["framework"]} for k, v in PROFILES.items()}
+
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return db.connect()
 
 def calculate_score(summary):
     deduction = (
@@ -61,7 +165,7 @@ def get_risk_delta(conn):
         return None
 
     def fetch_summary(scan_id):
-        cursor.execute("SELECT severity, COUNT(*) AS count FROM findings WHERE scan_id = ? GROUP BY severity", (scan_id,))
+        cursor.execute("SELECT severity, COUNT(*) AS count FROM findings WHERE scan_id = ? AND compliance_status != 'REMEDIATED' GROUP BY severity", (scan_id,))
         s = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
         for r in cursor.fetchall():
             s[r["severity"]] = r["count"]
@@ -78,7 +182,16 @@ def get_risk_delta(conn):
         "score_change": curr_score - prev_score,
     }
 
-def build_business_summary(conn, scan_id):
+def build_business_summary(conn, scan_id, override_profile=None):
+    """Build the business-impact summary for a scan.
+
+    Always recomputes severity/business_mapping live from each finding's
+    (finding_code, db_environment) via scanner_cli.compute_severity, rather
+    than reading the stored f.severity/f.business_mapping columns. This
+    makes the "as scanned" case and the `override_profile` preview case go
+    through the exact same code path — passing override_profile=None just
+    means "use the profile the scan was actually run with".
+    """
     cursor = conn.cursor()
     cursor.execute("""
         SELECT scan_id, aws_account_id, region, started_at, completed_at, business_profile
@@ -88,24 +201,39 @@ def build_business_summary(conn, scan_id):
     if not scan:
         return None
 
-    profile = PROFILES.get(scan["business_profile"] or GENERAL_PROFILE, PROFILES[GENERAL_PROFILE])
+    profile_name = override_profile if override_profile in PROFILES else (scan["business_profile"] or GENERAL_PROFILE)
+    profile = PROFILES[profile_name]
+    is_preview = override_profile is not None and override_profile != (scan["business_profile"] or GENERAL_PROFILE)
 
-    cursor.execute("SELECT severity, COUNT(*) AS count FROM findings WHERE scan_id = ? GROUP BY severity", (scan_id,))
+    cursor.execute("""
+        SELECT f.finding_code, f.title, f.db_environment, r.aws_resource_id AS resource
+        FROM findings f
+        LEFT JOIN resources r ON f.resource_id = r.resource_id
+        WHERE f.scan_id = ? AND f.compliance_status != 'REMEDIATED'
+    """, (scan_id,))
+    finding_rows = cursor.fetchall()
+
     summary = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
-    for row in cursor.fetchall():
-        summary[row["severity"]] = row["count"]
+    scored_findings = []
+    for row in finding_rows:
+        severity = scanner_cli.compute_severity(row["finding_code"], profile_name, row["db_environment"])
+        if severity in summary:
+            summary[severity] += 1
+        scored_findings.append({
+            "finding_code": row["finding_code"],
+            "title": row["title"],
+            "resource": row["resource"],
+            "severity": severity,
+            "business_mapping": profile["framework_mapping"].get(row["finding_code"]),
+        })
     total_findings = sum(summary.values())
     score, status = calculate_score(summary)
 
-    cursor.execute("""
-        SELECT f.finding_code, f.title, f.severity, r.aws_resource_id AS resource, f.business_mapping
-        FROM findings f
-        LEFT JOIN resources r ON f.resource_id = r.resource_id
-        WHERE f.scan_id = ? AND f.severity IN ('Critical', 'High')
-        ORDER BY CASE f.severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 END
-        LIMIT 5
-    """, (scan_id,))
-    top_findings = [dict(r) for r in cursor.fetchall()]
+    top_rank = {"Critical": 1, "High": 2}
+    top_findings = sorted(
+        (f for f in scored_findings if f["severity"] in top_rank),
+        key=lambda f: top_rank[f["severity"]],
+    )[:5]
 
     if status == "Good":
         posture_line = "Your environment is in a strong security position overall, with only minor issues remaining."
@@ -167,6 +295,7 @@ def build_business_summary(conn, scan_id):
         "completed_at": scan["completed_at"],
         "business_profile_label": profile["label"],
         "framework": framework,
+        "is_preview": is_preview,
         "score": score,
         "status": status,
         "summary": summary,
@@ -220,6 +349,7 @@ def render_business_summary_text(s):
 
 @app.route("/api/business-summary")
 def api_business_summary():
+    override_profile = request.args.get("profile")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT scan_id FROM scans ORDER BY scan_id DESC LIMIT 1")
@@ -227,7 +357,7 @@ def api_business_summary():
     if not row:
         conn.close()
         return jsonify({"error": "No scan data found"}), 404
-    summary = build_business_summary(conn, row["scan_id"])
+    summary = build_business_summary(conn, row["scan_id"], override_profile=override_profile)
     conn.close()
     return jsonify(summary)
 
@@ -278,11 +408,14 @@ def dashboard():
             severities=["Critical", "High", "Medium", "Low"],
             profiles=PROFILES,
             selected_profile=GENERAL_PROFILE,
+            profile_meta=PROFILE_META,
+            attack_chains=ATTACK_CHAINS,
+            chain_summary=compute_chain_summary([]),
         )
 
     scan_id = latest_scan["scan_id"]
 
-    cursor.execute("SELECT severity, COUNT(*) AS count FROM findings WHERE scan_id = ? GROUP BY severity", (scan_id,))
+    cursor.execute("SELECT severity, COUNT(*) AS count FROM findings WHERE scan_id = ? AND compliance_status != 'REMEDIATED' GROUP BY severity", (scan_id,))
     summary = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
     for row in cursor.fetchall():
         summary[row["severity"]] = row["count"]
@@ -325,6 +458,7 @@ def dashboard():
     """, (scan_id,))
     findings = cursor.fetchall()
 
+    chain_summary = compute_chain_summary(findings)
     services = sorted({f["service"] for f in findings if f["service"]})
     severities = ["Critical", "High", "Medium", "Low"]
     risk_delta = get_risk_delta(conn)
@@ -361,6 +495,9 @@ def dashboard():
         severities=severities,
         profiles=PROFILES,
         selected_profile=latest_scan["business_profile"] or GENERAL_PROFILE,
+        profile_meta=PROFILE_META,
+        attack_chains=ATTACK_CHAINS,
+        chain_summary=chain_summary,
     )
 
 @app.route("/api/findings")
@@ -368,6 +505,13 @@ def api_findings():
     severity = request.args.get("severity", "all")
     service = request.args.get("service", "all")
     code = request.args.get("code", "all")
+    # Optional: re-weight severity/mapping under a different business profile
+    # than the one the scan was run with, without re-scanning AWS. See
+    # scanner.compute_severity — profile/environment are a pure relabeling
+    # of the same stored finding, so this only needs data already in the DB.
+    preview_profile = request.args.get("profile")
+    if preview_profile not in PROFILES:
+        preview_profile = None
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -381,7 +525,8 @@ def api_findings():
     query = """
     SELECT f.finding_id, f.finding_code, f.title, f.severity,
            f.compliance_status, f.remediation, f.description,
-           f.detected_at, f.evidence, r.service, r.aws_resource_id AS resource,
+           f.detected_at, f.evidence, f.business_framework, f.business_mapping,
+           f.db_environment, r.service, r.aws_resource_id AS resource,
            GROUP_CONCAT(c.control_code, ', ') AS cis_mapping
     FROM findings f
     LEFT JOIN resources r ON f.resource_id = r.resource_id
@@ -390,7 +535,10 @@ def api_findings():
     WHERE f.scan_id = ?
     """
     params = [scan_id]
-    if severity != "all":
+    # When previewing under a different profile, severity is recomputed
+    # after the query, so filtering on the stored f.severity column here
+    # would filter against the wrong (pre-recompute) value.
+    if severity != "all" and not preview_profile:
         query += " AND f.severity = ?"
         params.append(severity)
     if service != "all":
@@ -400,17 +548,22 @@ def api_findings():
         query += " AND f.finding_code = ?"
         params.append(code)
 
-    query += """
-    GROUP BY f.finding_id
-    ORDER BY CASE f.severity
-        WHEN 'Critical' THEN 1 WHEN 'High' THEN 2
-        WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4
-        ELSE 5
-    END
-    """
+    query += " GROUP BY f.finding_id"
     cursor.execute(query, params)
     rows = [dict(r) for r in cursor.fetchall()]
     conn.close()
+
+    if preview_profile:
+        profile = PROFILES[preview_profile]
+        for r in rows:
+            r["severity"] = scanner_cli.compute_severity(r["finding_code"], preview_profile, r.get("db_environment"))
+            r["business_framework"] = profile["framework"]
+            r["business_mapping"] = profile["framework_mapping"].get(r["finding_code"])
+        if severity != "all":
+            rows = [r for r in rows if r["severity"] == severity]
+
+    severity_rank = {"Critical": 1, "High": 2, "Medium": 3, "Low": 4}
+    rows.sort(key=lambda r: severity_rank.get(r["severity"], 5))
     return jsonify(rows)
 
 @app.route("/api/history")
@@ -479,6 +632,23 @@ def remediate_finding(finding_id):
     conn.close()
     return jsonify({"status": "ok", "finding_id": finding_id})
 
+@app.route("/api/reset-scans", methods=["POST"])
+def reset_scans():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # TRUNCATE clears the rows and resets AUTO_INCREMENT back to 1 (the MySQL
+    # equivalent of deleting rows + clearing sqlite_sequence). FK checks are
+    # disabled briefly so the child tables can be truncated regardless of order.
+    cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+    cursor.execute("TRUNCATE TABLE finding_cis_mappings")
+    cursor.execute("TRUNCATE TABLE findings")
+    cursor.execute("TRUNCATE TABLE resources")
+    cursor.execute("TRUNCATE TABLE scans")
+    cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "ok"})
+
 @app.route("/scan")
 def run_scan():
     profile = request.args.get("profile", GENERAL_PROFILE)
@@ -528,7 +698,7 @@ def export_filtered():
     conn.close()
 
     export_data = {
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": datetime.now().astimezone().isoformat(),
         "filters": {"severity": severity, "service": service},
         "total": len(rows),
         "findings": rows,
@@ -538,6 +708,64 @@ def export_filtered():
         json.dump(export_data, f, indent=2)
 
     return send_file(tmp_path, as_attachment=True, download_name="findings_export.json")
+
+@app.route("/download-scan-report/<int:scan_id>")
+def download_scan_report(scan_id):
+    """Business-summary text report for any past scan (not just the latest)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT scan_id FROM scans WHERE scan_id = ?", (scan_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return "Scan not found.", 404
+    summary = build_business_summary(conn, scan_id)
+    conn.close()
+    report_text = render_business_summary_text(summary)
+    return Response(
+        report_text,
+        mimetype="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=business_summary_scan_{scan_id}.txt"},
+    )
+
+@app.route("/download-scan-json/<int:scan_id>")
+def download_scan_json(scan_id):
+    """Raw JSON export of any past scan, built from the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT scan_id, aws_profile, aws_account_id, region, service, scan_type,
+               started_at, completed_at, status, business_profile
+        FROM scans WHERE scan_id = ?
+    """, (scan_id,))
+    scan = cursor.fetchone()
+    if not scan:
+        conn.close()
+        return "Scan not found.", 404
+    cursor.execute("""
+        SELECT f.finding_code, f.title, f.severity, f.compliance_status,
+               f.description, f.remediation, f.evidence, f.detected_at,
+               f.business_framework, f.business_mapping,
+               f.db_engine, f.db_environment, f.db_engine_note,
+               r.service, r.aws_resource_id AS resource
+        FROM findings f
+        LEFT JOIN resources r ON f.resource_id = r.resource_id
+        WHERE f.scan_id = ?
+        ORDER BY CASE f.severity
+                   WHEN 'Critical' THEN 1 WHEN 'High' THEN 2
+                   WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END
+    """, (scan_id,))
+    findings = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    export_data = {
+        "scan": dict(scan),
+        "total_findings": len(findings),
+        "findings": findings,
+    }
+    return Response(
+        json.dumps(export_data, indent=2, default=str),
+        mimetype="application/json; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=scan_{scan_id}_findings.json"},
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

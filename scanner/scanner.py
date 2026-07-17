@@ -1,6 +1,6 @@
 import sys
 import boto3
-import sqlite3
+import db  # MySQL connection wrapper (see db.py)
 import json
 from datetime import datetime
 from botocore.exceptions import ClientError
@@ -13,10 +13,9 @@ from scanner.checks.s3_checks import run_s3_checks
 from scanner.checks.sg_checks import run_sg_checks
 from scanner.checks.vpc_checks import run_vpc_checks
 from scanner.checks.kms_checks import run_kms_checks
-from scanner.profiles import get_profile, GENERAL_PROFILE
+from scanner.profiles import get_profile, GENERAL_PROFILE, validate_profiles
 from scanner.db_profiles import adjust_severity, get_engine_note
 
-DB_PATH = "capstone.db"
 JSON_OUTPUT_PATH = "findings.json"
 AWS_PROFILE = "default"
 AWS_REGION = "ca-central-1"
@@ -305,8 +304,10 @@ RULES = {
     },
 }
 
+validate_profiles(RULES.keys())
+
 def now_iso():
-    return datetime.utcnow().isoformat()
+    return datetime.now().astimezone().isoformat()
 
 def get_account_id():
     sts = boto3.client("sts")
@@ -355,10 +356,29 @@ def build_arn(service, resource):
         return f"arn:aws:kms:{AWS_REGION}:{account_id}:key/{resource}"
     return None
 
+def compute_severity(rule_id, profile_name, environment=None):
+    """Pure function: (rule, sector profile, environment tier) -> severity.
+
+    Reused both at scan time (add_finding, below) and at read time (see
+    app.py's /api/findings `profile` param) so a stored scan's findings can
+    be re-weighted under a different business profile without re-scanning
+    AWS — the profile/environment axes are a pure relabeling of the same
+    underlying facts, not something that needs fresh AWS data.
+    """
+    rule = RULES[rule_id]
+    profile = get_profile(profile_name)
+    override = profile["severity_overrides"].get(rule_id)
+    severity = override if override is not None else rule["severity"]
+    if environment is not None:
+        # `override` doubles as the floor: if this profile flags the rule as
+        # sector-critical, the environment discount can't erode it below
+        # that regulatory-mandated severity.
+        severity = adjust_severity(rule_id, severity, environment, floor=override)
+    return severity
+
 def add_finding(findings, rule_id, resource, risk, evidence=None, service=None, db_context=None):
     rule = RULES[rule_id]
     profile = get_profile(BUSINESS_PROFILE)
-    severity = profile["severity_overrides"].get(rule_id, rule["severity"])
     business_mapping = profile["framework_mapping"].get(rule_id)
 
     engine = None
@@ -367,8 +387,9 @@ def add_finding(findings, rule_id, resource, risk, evidence=None, service=None, 
     if db_context:
         environment = db_context.get("environment")
         engine = db_context.get("engine")
-        severity = adjust_severity(severity, environment)
-        engine_note = get_engine_note(engine)
+        engine_note = get_engine_note(rule_id, engine)
+
+    severity = compute_severity(rule_id, BUSINESS_PROFILE, environment)
 
     findings.append({
         "finding_code": rule_id,
@@ -451,7 +472,7 @@ def get_or_create_cis_control(cursor, control_code):
     cursor.execute("SELECT cis_id FROM cis_controls WHERE control_code = ?", (control_code,))
     row = cursor.fetchone()
     if row:
-        return row[0]
+        return row["cis_id"]
     cursor.execute("INSERT INTO cis_controls (cis_version, control_code, control_title) VALUES (?, ?, ?)", ("CIS v8", control_code, control_code))
     return cursor.lastrowid
 
@@ -477,7 +498,7 @@ def insert_finding_cis_mappings(cursor, finding_id, cis_controls):
         cursor.execute("INSERT INTO finding_cis_mappings (finding_id, cis_id) VALUES (?, ?)", (finding_id, cis_id))
 
 def save_findings_to_db(findings):
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn = db.connect()
     cursor = conn.cursor()
     account_id = get_account_id()
     scan_id = insert_scan(cursor, account_id)
@@ -489,7 +510,7 @@ def save_findings_to_db(findings):
         conn.commit()
     finally:
         conn.close()
-    print(f"Findings saved to database: {DB_PATH} (scan_id={scan_id})")
+    print(f"Findings saved to MySQL database (scan_id={scan_id})")
 
 def save_findings_to_json(findings):
     output = {
